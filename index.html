@@ -66,7 +66,16 @@ input::placeholder,textarea::placeholder{color:var(--muted)}
 .card{background:var(--card-grad);border:1px solid var(--line);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0;transition:border-color .15s,box-shadow .15s}
 .card:hover{border-color:var(--line-strong);box-shadow:0 10px 40px rgba(139,92,246,.12)}
 .card.flash{border-color:var(--green);box-shadow:0 0 0 3px rgba(74,222,128,.22)}
-.card-top{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.card-head{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0}
+.fav{flex:none;width:38px;height:38px;border-radius:12px;border:1px solid var(--line-strong);background:var(--surface-2);color:var(--muted);font-size:18px;line-height:1;cursor:pointer;display:grid;place-items:center;transition:transform .12s,color .12s,border-color .12s}
+.fav:hover{color:#facc15;border-color:#facc15}
+.fav:active{transform:scale(.9)}
+.fav[aria-pressed="true"]{color:#facc15;border-color:rgba(250,204,21,.5);background:rgba(250,204,21,.10)}
+.fav:focus-visible{outline:2px solid var(--accent-soft);outline-offset:2px}
+.card.is-fav{border-color:rgba(250,204,21,.35)}
+.chip.fav-chip{color:#facc15}
+.chip.fav-chip[aria-pressed="true"]{background:#facc15;border-color:#facc15;color:#1a1400;box-shadow:0 6px 20px rgba(250,204,21,.25)}
 .tag{font:700 10.5px/1 var(--f-body);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-soft);white-space:nowrap}
 .card h3{font:800 19px/1.2 var(--f-display);letter-spacing:-.02em;margin:0;text-wrap:balance}
 .body{white-space:pre-wrap;word-wrap:break-word;color:#d9d5ea;font:14.5px/1.6 var(--f-body);max-height:220px;overflow:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0}
@@ -166,6 +175,10 @@ body{margin:0}
   let sb = null, msgs = [], filter = "Tous", editingId = null, confirmId = null;
 
   const store = { get(k){try{return localStorage.getItem(k)}catch{return null}}, set(k,v){try{localStorage.setItem(k,v)}catch{}} };
+  const FAV = "★ Favoris";
+  let favs = new Set(); try { favs = new Set(JSON.parse(store.get("favoris") || "[]").map(String)); } catch {}
+  const isFav = m => favs.has(String(m.id));
+  const saveFavs = () => store.set("favoris", JSON.stringify([...favs]));
 
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const fill = t => t;
@@ -176,13 +189,15 @@ body{margin:0}
     const q = $("#search").value.trim().toLowerCase();
     const cats = {};
     msgs.forEach(m => { const c = m.category || "Sans catégorie"; cats[c] = (cats[c]||0)+1; });
-    if (filter !== "Tous" && !cats[filter]) filter = "Tous";
-    chips.innerHTML = ["Tous", ...Object.keys(cats).sort((a,b)=>a.localeCompare(b,"fr"))].map(c =>
-      `<button type="button" class="chip" data-cat="${esc(c)}" aria-pressed="${c===filter}">${esc(c)}<b>${c==="Tous"?msgs.length:cats[c]}</b></button>`).join("");
+    const favCount = msgs.filter(isFav).length;
+    if (filter !== "Tous" && filter !== FAV && !cats[filter]) filter = "Tous";
+    chips.innerHTML = ["Tous", FAV, ...Object.keys(cats).sort((a,b)=>a.localeCompare(b,"fr"))].map(c =>
+      `<button type="button" class="chip${c===FAV?" fav-chip":""}" data-cat="${esc(c)}" aria-pressed="${c===filter}">${esc(c)}<b>${c==="Tous"?msgs.length:c===FAV?favCount:cats[c]}</b></button>`).join("");
     $("#cats").innerHTML = Object.keys(cats).filter(c=>c!=="Sans catégorie").map(c=>`<option value="${esc(c)}">`).join("");
 
-    const list = msgs.filter(m => (filter==="Tous" || (m.category||"Sans catégorie")===filter) &&
-      (!q || (m.title+" "+m.body+" "+(m.category||"")).toLowerCase().includes(q)));
+    const list = msgs.filter(m => (filter==="Tous" || (filter===FAV ? isFav(m) : (m.category||"Sans catégorie")===filter)) &&
+      (!q || (m.title+" "+m.body+" "+(m.category||"")).toLowerCase().includes(q)))
+      .sort((a,b) => isFav(b) - isFav(a));
     empty.hidden = msgs.length > 0;
     grid.innerHTML = list.map(m => {
       const body = esc(fill(m.body)).replace(/\{pr[ée]nom\}/gi, s => `<mark>${s}</mark>`);
@@ -191,14 +206,18 @@ body{margin:0}
         : `<button class="btn primary copy" data-act="copy" data-id="${m.id}" type="button">Copier</button>
            <button class="btn sm ghost" data-act="edit" data-id="${m.id}" type="button">Modifier</button>
            <button class="btn sm ghost danger" data-act="del" data-id="${m.id}" type="button" aria-label="Supprimer">✕</button>`;
-      return `<article class="card">
-        <div class="card-top">${m.category?`<span class="tag">${esc(m.category)}</span>`:""}<h3>${esc(m.title)}</h3></div>
+      const fav = isFav(m);
+      return `<article class="card${fav?" is-fav":""}">
+        <div class="card-top"><div class="card-head">${m.category?`<span class="tag">${esc(m.category)}</span>`:""}<h3>${esc(m.title)}</h3></div>
+          <button class="fav" type="button" data-act="fav" data-id="${m.id}" aria-pressed="${fav}" aria-label="${fav?"Retirer des favoris":"Ajouter aux favoris"}" title="${fav?"Retirer des favoris":"Ajouter aux favoris"}">${fav?"★":"☆"}</button></div>
         <pre class="body">${body}</pre>
         <div class="card-actions">${actions}</div>
         ${m.uses?`<span class="uses">copié ${m.uses}×</span>`:""}
       </article>`;
     }).join("");
-    if (msgs.length && !list.length) grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><h2>Rien ne correspond</h2><p>Essaie un autre mot ou la catégorie « Tous ».</p></div>`;
+    if (msgs.length && !list.length) grid.innerHTML = filter===FAV && !q
+      ? `<div class="empty" style="grid-column:1/-1"><h2>Pas encore de favoris</h2><p>Clique sur l'étoile ☆ d'un message pour le retrouver ici.</p></div>`
+      : `<div class="empty" style="grid-column:1/-1"><h2>Rien ne correspond</h2><p>Essaie un autre mot ou la catégorie « Tous ».</p></div>`;
   }
 
   async function load(){
@@ -228,6 +247,7 @@ body{margin:0}
     switch (b.dataset.act) {
       case "copy": copy(m, b); break;
       case "edit": openDlg(m); break;
+      case "fav": { const k = String(m.id); if (favs.has(k)) { favs.delete(k); toast("Retiré des favoris"); } else { favs.add(k); toast("Ajouté aux favoris ★"); } saveFavs(); render(); break; }
       case "del": confirmId = m.id; render(); break;
       case "del-no": confirmId = null; render(); break;
       case "del-yes": {
