@@ -4,13 +4,15 @@ import { config } from "./config";
 
 /**
  * Stockage des médias.
- * - Production : Vercel Blob (BLOB_READ_WRITE_TOKEN) -> on stocke l'URL publique complète.
+ * - Production : Vercel Blob (BLOB_READ_WRITE_TOKEN ou BLOB_STORE_ID) -> on stocke l'URL publique complète.
  * - Local : fichiers dans DATA_DIR/media, servis par /api/media/... -> on stocke le chemin relatif.
  */
 export const MEDIA_ROOT = path.join(config.dataDir, "media");
 
 export function useBlob() {
-  return !!process.env.BLOB_READ_WRITE_TOKEN;
+  // Ancienne méthode : jeton BLOB_READ_WRITE_TOKEN.
+  // Nouvelle méthode Vercel : BLOB_STORE_ID + jeton OIDC fourni automatiquement à l'exécution.
+  return !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 }
 
 function localPath(rel: string): string {
