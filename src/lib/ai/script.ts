@@ -53,6 +53,8 @@ export async function buildPlan(input: {
   countryId: string;
   episodes: number;
   cast: Character[];
+  /** Durée d'un épisode (s) : chaque épisode ne contient que ce qui tient dans ce temps */
+  seconds?: number;
 }): Promise<SeriesPlan> {
   if (isMock()) {
     return {
@@ -77,6 +79,9 @@ Chaque épisode (sauf le dernier) finit sur un suspense fort. Le dernier épisod
 Titre : ${input.title}
 Pitch : ${input.pitch}
 Nombre d'épisodes : ${input.episodes}
+Durée de chaque épisode : ${input.seconds ?? 30} secondes. Chaque "summary" ne décrit qu'UNE situation simple qui tient dans cette durée
+(en ${input.seconds ?? 30} s : 3 à ${Math.max(3, Math.round((input.seconds ?? 30) / 6))} répliques). Si l'histoire est longue, garde le reste pour les épisodes suivants.
+${input.episodes === 1 ? "Épisode unique : raconte seulement le début accrocheur de l'histoire et coupe sur un suspense." : ""}
 Personnages :
 ${castText(input.cast)}`,
   );
@@ -116,38 +121,119 @@ export async function buildScript(input: {
 
   const country = getCountry(input.countryId);
   const style = getStyle(input.styleId);
-  return chatJSON<Script>(
-    `Tu découpes un épisode de mini-série TikTok en plans vidéo de ${config.clipSeconds} secondes chacun.
-Personnages-fruits 3D. Style : ${style.prompt}.
-Règles :
-- Exactement ${sceneCount} plans, format vertical.
-- STRUCTURE : plan 1 = on comprend tout de suite QUI est face à QUI et QUEL est l'enjeu (accroche) ;
-  plans du milieu = le conflit monte d'un cran à chaque plan ; dernier plan = retournement ou cliffhanger.
-- UNE seule réplique par plan, dite par UN personnage visible à l'écran (deux répliques maximum si deux personnages se répondent, très courtes).
-- Chaque réplique est une PHRASE COMPLÈTE et naturelle de 6 à 12 mots, qui se dit en ${Math.max(3, config.clipSeconds - 2)} secondes,
-  compréhensible seule ET qui répond ou fait suite à la réplique précédente (pas de fragments du type « Je prends cinq. »).
-- Au maximum ${sceneCount <= 5 ? "2 ou 3" : "4"} personnages dans tout l'épisode, toujours les mêmes, pour que ce soit lisible.
-${VIRAL_FORMULA}
+  const world =
+    country.id === "monde"
+      ? "Univers Monde : décors universels, argent en euros, aucune référence africaine (pas de FCFA, pas de pagne…)."
+      : `Univers ${country.name} : décors, prénoms et argent locaux (${country.setting}).`;
+
+  const draft = await chatJSON<Script>(
+    `Tu es scénariste de mini-séries TikTok jouées par des personnages-fruits 3D. Tu écris UN épisode de ${input.seconds} secondes,
+découpé en exactement ${sceneCount} plans de ~${config.clipSeconds} s. Style visuel : ${style.prompt}.
+${world}
+
+PRINCIPE N°1 — UN SPECTATEUR QUI NE SAIT RIEN DOIT TOUT COMPRENDRE.
+En ${input.seconds} secondes on ne raconte qu'UNE situation simple, pas toute l'histoire. Mieux vaut moins d'événements, parfaitement clairs.
+
+BEATS OBLIGATOIRES :
+${beats(sceneCount)}
+
+RÈGLES DES RÉPLIQUES :
+- UNE réplique par plan, dite par UN personnage visible. Phrase complète, naturelle, 6 à 12 mots, dicible en ${Math.max(3, config.clipSeconds - 2)} s.
+- Chaque réplique répond DIRECTEMENT à la précédente ou à ce qu'on vient de voir (cause → conséquence). Aucun saut logique.
+- Toute information nécessaire est DITE ou MONTRÉE (qui est qui, ce qu'il veut, ce qui est en jeu). Pas de chiffres ni de noms sortis de nulle part.
+- Le méchant et la victime sont identifiables dès le plan 1 (on s'appelle par son prénom ou son rôle).
+- Pas de jargon, pas d'énumérations télégraphiques (« 300 plateaux, 5 minutes »). Français simple, ton familier.
 - Une pensée intérieure est permise : speaker = "Prénom (pensée)".
-- Varie les cadrages d'un plan à l'autre (gros plan visage, plan large, plan sur un objet clé : billets, téléphone, coffre…). 2 à 4 lieux maximum.
-- LISIBILITÉ AVANT TOUT : français simple que n'importe quel francophone comprend du premier coup.
-  Couleur locale (${country.accent}) : au maximum UNE expression locale par plan, toujours compréhensible grâce au contexte.
-- L'histoire doit être claire même sans le son : situation → conflit → retournement. Chaque réplique fait avancer l'histoire
-  (révèle une info, accuse, ment, menace, avoue…). Pas de répliques vagues ou de remplissage.
-- Les personnages s'appellent par leur prénom ou leur rôle (« Papa », « Tonton ») dans les premiers plans pour qu'on sache qui est qui.
-- "setting", "action" et "camera" sont en ANGLAIS (servent aux prompts image/vidéo), les répliques en français.
-- "characters" ne contient que des prénoms de la liste fournie (1 ou 2 par plan).
-- "lines" ne contient QUE des paroles prononcées à voix haute par un personnage : jamais de résumé, de narration, de didascalie ni de mot comme "Fin", "Suite", "Morale".
-- Le premier plan accroche en 2 secondes : une phrase choc ou une question qui donne envie de connaître la suite.
-- Le dernier plan se termine sur une réplique choc qui illustre ce moment (sans le recopier) : ${ep.cliffhanger}
-- Chaque plan = UNE seule action continue dans UN seul lieu (pas de montage, pas de split-screen).
-- Avant d'écrire, résume l'épisode en une phrase dans "logline" ; chaque plan doit servir cette phrase.
-- "mood" = l'ambiance musicale dominante, parmi : suspense, drame, emotion, action, comedie, triomphe.
+- Au maximum ${sceneCount <= 5 ? "2 ou 3" : "4"} personnages dans tout l'épisode.
+${VIRAL_FORMULA}
+
+RÈGLES DES IMAGES ("setting", "action", "camera" en ANGLAIS) :
+- "action" décrit précisément ce qu'on VOIT : qui fait quoi, l'objet clé visible (téléphone avec la preuve à l'écran, liasse de billets…),
+  et la RÉACTION visible de l'autre personnage (peur, colère, choc). L'image doit illustrer la réplique.
+- Un seul lieu continu par plan, 1 à 3 lieux pour tout l'épisode. Cadrages variés (gros plan visage, plan moyen, détail sur l'objet).
+- "characters" et "speaker" : EXACTEMENT les noms de la liste fournie, écrits pareil (ex. « Le Boss », pas « La Pastèque »), 1 ou 2 par plan.
+
+FIN : le dernier plan se termine sur ce moment (sans le recopier mot pour mot) : ${ep.cliffhanger}
+"logline" = l'épisode en une phrase simple. "mood" parmi : suspense, drame, emotion, action, comedie, triomphe.
 Réponds UNIQUEMENT en JSON : {"title": string, "logline": string, "mood": string, "scenes": [{"characters": string[], "setting": string, "action": string, "camera": string, "lines": [{"speaker": string, "text": string}]}]}`,
-    `Pays : ${country.name} — décor : ${country.setting}
-Épisode ${ep.n} : ${ep.title}
-Résumé : ${ep.summary}
-Personnages :
+    `Épisode ${ep.n}/${input.plan.episodes.length} : ${ep.title}
+Ce qui se passe dans CET épisode : ${ep.summary}
+Personnages disponibles :
 ${castText(input.cast)}`,
   );
+
+  draft.scenes = normalizeNames(draft.scenes ?? [], input.cast);
+
+  // Relecture par un « script doctor » : vérifie la clarté pour un spectateur qui ne sait rien et corrige.
+  try {
+    const fixed = await chatJSON<Script & { problems?: string[] }>(
+      `Tu es script doctor pour des mini-séries TikTok de ${input.seconds} secondes. On te donne un scénario en JSON.
+Relis-le comme un spectateur qui ne sait RIEN de l'histoire et qui n'entend que les répliques en voyant les images.
+Vérifie et CORRIGE si besoin :
+1. Comprend-on qui est le méchant, qui est la victime, et ce qui est en jeu dès le plan 1 ?
+2. Chaque réplique découle-t-elle logiquement de la précédente ? Supprime tout saut, tout élément sorti de nulle part.
+3. Les répliques sont-elles des phrases complètes et naturelles de 6 à 12 mots (pas de style télégraphique) ?
+4. Les "action" (anglais) montrent-elles ce qui est dit et la réaction des autres personnages ?
+5. Cohérence de l'univers : ${world}
+6. La fin donne-t-elle envie de voir la suite ?
+Garde exactement ${sceneCount} plans, les mêmes prénoms, et le même format JSON (+ un champ "problems" listant ce que tu as corrigé).
+Réponds UNIQUEMENT en JSON.`,
+      JSON.stringify(draft),
+    );
+    if (fixed?.scenes?.length === draft.scenes?.length && fixed.scenes.every((sc) => sc.lines?.length)) {
+      const { problems, ...rest } = fixed;
+      if (problems?.length) console.log("[script doctor]", problems);
+      rest.scenes = normalizeNames(rest.scenes, input.cast);
+      return rest;
+    }
+  } catch (e) {
+    console.warn("[script doctor] relecture ignorée", e);
+  }
+  return draft;
+}
+
+/** Structure narrative imposée selon le nombre de plans. */
+function beats(n: number): string {
+  if (n <= 3)
+    return `- Plan 1 : LA SITUATION. Le méchant menace/humilie la victime ; on comprend tout de suite l'injustice.
+- Plan ${n === 3 ? 2 : 1} : LA RÉACTION. La victime (ou un témoin) réagit et laisse voir qu'elle a un secret ou un atout.
+- Plan ${n} : LE CHOC. Le secret éclate ou va éclater ; réaction du méchant ; on coupe au moment le plus fort.`;
+  if (n <= 5)
+    return `- Plan 1 : la situation et l'injustice, claires.
+- Plan 2 : l'injustice empire (le méchant en rajoute).
+- Plan 3 : la victime révèle un indice/atout (un témoin le remarque).
+- Plan 4 : le méchant ne voit rien venir, il se moque.
+- Plan ${n} : le choc, coupé au moment le plus fort.`;
+  return `- Plans 1-2 : la situation, les personnages, l'injustice.
+- Plans 3-${Math.floor(n / 2)} : l'injustice monte, la victime encaisse ; un témoin remarque quelque chose.
+- Plans ${Math.floor(n / 2) + 1}-${n - 2} : la victime prépare sa riposte, le méchant se croit intouchable.
+- Plans ${n - 1}-${n} : le retournement éclate ; réaction du méchant ; on coupe au moment le plus fort.`;
+}
+
+function norm(t: string) {
+  return t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+/**
+ * L'IA renomme parfois un personnage (« La Pastèque » au lieu de « Le Boss ») : on ramène chaque nom
+ * au bon personnage du casting (nom exact, puis fruit, puis rôle), pour retrouver son portrait de référence.
+ */
+export function normalizeNames(scenes: Scene[], cast: Character[]): Scene[] {
+  const resolve = (raw: string) => {
+    const thought = /\(pens[ée]e\)/i.test(raw);
+    const name = raw.replace(/\s*\(pens[ée]e\)/i, "").trim();
+    const n = norm(name);
+    const hit =
+      cast.find((c) => norm(c.name) === n) ??
+      cast.find((c) => n.includes(norm(c.name)) || norm(c.name).includes(n)) ??
+      cast.find((c) => n.includes(norm(fruitLabel(c.fruit)))) ??
+      cast.find((c) => n.includes(norm(c.role)) || norm(c.role).split(/\s+/).some((w) => w.length > 4 && n.includes(w)));
+    const fixed = hit?.name ?? name;
+    return thought ? `${fixed} (pensée)` : fixed;
+  };
+  return scenes.map((s) => ({
+    ...s,
+    characters: [...new Set((s.characters ?? []).map(resolve))],
+    lines: (s.lines ?? []).map((l) => ({ ...l, speaker: resolve(l.speaker) })),
+  }));
 }

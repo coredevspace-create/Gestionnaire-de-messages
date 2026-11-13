@@ -34,7 +34,7 @@ type Props = {
 function tint(id: string) {
   let h = 0;
   for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return `radial-gradient(120% 90% at 50% 0%, hsl(${h % 360} 45% 22%), #141417 70%)`;
+  return `radial-gradient(120% 100% at 50% 0%, hsl(${h % 360} 70% 34%), hsl(${(h + 40) % 360} 50% 12%) 75%)`;
 }
 
 function LaunchOverlay() {

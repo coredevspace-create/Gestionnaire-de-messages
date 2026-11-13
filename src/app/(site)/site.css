@@ -150,3 +150,88 @@
   .lp-facts { gap: 20px; }
   .site-footer .inner { grid-template-columns: 1fr; }
 }
+
+/* =========================================================
+   Couleurs et animations (par-dessus la base sobre)
+   ========================================================= */
+.brand { font-size: 17px; }
+.lp-label { color: var(--text); font-weight: 550; }
+.lp-label::before { width: 8px; height: 8px; background: var(--grad); box-shadow: 0 0 12px rgba(255, 61, 107, 0.8); }
+.lp-pill b { background: var(--grad); color: #1a0a06; }
+
+/* Halo animé derrière le hero */
+.lp-hero { position: relative; overflow: hidden; }
+.lp-aurora { position: absolute; inset: -20% -10% auto -10%; height: 120%; pointer-events: none; z-index: 0; filter: blur(80px); opacity: 0.55; }
+.lp-aurora span { position: absolute; border-radius: 50%; mix-blend-mode: screen; animation: drift 18s ease-in-out infinite alternate; }
+.lp-aurora span:nth-child(1) { width: 520px; height: 520px; left: 5%; top: 0; background: #ff6a2b; }
+.lp-aurora span:nth-child(2) { width: 460px; height: 460px; right: 8%; top: 10%; background: #ff3d6b; animation-delay: -6s; }
+.lp-aurora span:nth-child(3) { width: 420px; height: 420px; left: 40%; top: 35%; background: #c64dff; animation-delay: -12s; opacity: 0.8; }
+@keyframes drift { 0% { transform: translate(0, 0) scale(1); } 50% { transform: translate(60px, 40px) scale(1.12); } 100% { transform: translate(-40px, 20px) scale(0.95); } }
+.lp-hero .lp-wrap { position: relative; z-index: 1; }
+
+/* Téléphone vivant */
+.lp-device { animation: float 7s ease-in-out infinite; box-shadow: 0 60px 120px -40px rgba(255, 61, 107, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04) inset; }
+.lp-device::before { content: ""; position: absolute; inset: -2px; border-radius: 48px; padding: 2px; background: var(--grad); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0.8; }
+@keyframes float { 0%, 100% { transform: translateY(0) rotate(-1.5deg); } 50% { transform: translateY(-12px) rotate(1deg); } }
+.lp-device .caption { color: #ffe14d; animation: popword 2.6s ease-in-out infinite; }
+@keyframes popword { 0%, 100% { transform: scale(1); } 6% { transform: scale(1.15); } 12% { transform: scale(1); } }
+.lp-note .ic { background: var(--grad); color: #1a0a06; }
+.lp-note { animation: float 6s ease-in-out infinite reverse; }
+.lp-likes { position: absolute; right: -26px; top: 90px; z-index: 3; display: grid; gap: 10px; }
+.lp-likes span { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: rgba(24, 24, 28, 0.85); border: 1px solid var(--border-strong); backdrop-filter: blur(10px); font-size: 11px; font-weight: 700; color: var(--text-2); }
+.lp-likes span svg { color: var(--pink); }
+.lp-likes span:nth-child(2) svg { color: var(--yellow); }
+.lp-likes span:nth-child(1) { animation: heart 1.8s ease-in-out infinite; }
+@keyframes heart { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.12); } 30% { transform: scale(1); } }
+
+.lp-facts b { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* Bandeau de thèmes */
+.lp-ticker { border-block: 1px solid var(--border); overflow: hidden; padding: 16px 0; background: rgba(255, 255, 255, 0.015); }
+.lp-ticker-track { display: flex; gap: 36px; width: max-content; animation: ticker 45s linear infinite; }
+.lp-ticker-track span { display: inline-flex; align-items: center; gap: 36px; font-size: 19px; font-weight: 550; letter-spacing: -0.02em; color: var(--text-2); white-space: nowrap; }
+.lp-ticker-track span::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--accent)); }
+@keyframes ticker { to { transform: translateX(-50%); } }
+
+/* Exemples colorés */
+.lp-clip .frame { transition: transform 0.3s, box-shadow 0.3s; }
+.lp-clip:hover .frame { transform: translateY(-6px); box-shadow: 0 30px 60px -30px var(--glow, rgba(255, 61, 107, 0.7)); }
+.lp-clip .frame.text { background: var(--bgq, linear-gradient(160deg, #3a1d10, #1a0f14 60%)); border-color: rgba(255, 255, 255, 0.1); }
+.lp-clip .frame.text blockquote { color: #fff; }
+.lp-clip .frame.text .who { color: rgba(255, 255, 255, 0.6); }
+.lp-reel .lp-clip:nth-child(even) { margin-top: 40px; }
+
+/* Fonctionnalités : tuiles colorées */
+.lp-feats .ic { border: 0; color: #fff; background: var(--tile, var(--accent)); box-shadow: 0 10px 24px -10px var(--tile, var(--accent)); }
+.lp-feats > div { transition: background 0.2s; }
+.lp-feats > div:hover { background: #111114; }
+
+/* Univers */
+.lp-world.plain { background: radial-gradient(120% 100% at 100% 0%, rgba(198, 77, 255, 0.35), transparent 55%), radial-gradient(100% 100% at 0% 100%, rgba(77, 184, 255, 0.25), transparent 55%), var(--panel); }
+.lp-world { transition: transform 0.3s; }
+.lp-world:hover { transform: translateY(-4px); }
+
+/* Tarifs */
+.lp-price.pop { background: linear-gradient(var(--panel), var(--panel)) padding-box, var(--grad) border-box; border: 1.5px solid transparent; box-shadow: 0 40px 80px -40px rgba(255, 61, 107, 0.6); }
+.lp-price .head span { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lp-price li svg { color: var(--mint); }
+.lp-toggle a.on { background: var(--grad); color: #1a0a06; }
+
+/* Appel final coloré */
+.lp-final .lp-wrap { position: relative; overflow: hidden; border-radius: 32px; padding: 90px 24px; background: var(--grad); color: #1a0a06; }
+.lp-final .lp-wrap::before { content: ""; position: absolute; inset: 0; background: radial-gradient(60% 80% at 20% 0%, rgba(255, 255, 255, 0.35), transparent 60%); }
+.lp-final .lp-wrap > * { position: relative; }
+.lp-final h2 .serif { color: #1a0a06; }
+.lp-final p { color: rgba(26, 10, 6, 0.75); }
+.lp-final .btn { background: #0b0b0d; color: #fff; }
+.lp-final .btn:hover { background: #1c1c20; }
+
+@media (max-width: 960px) {
+  .lp-likes { right: -6px; }
+  .lp-reel .lp-clip:nth-child(even) { margin-top: 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-aurora span, .lp-device, .lp-note, .lp-ticker-track, .lp-likes span, .lp-device .caption { animation: none; }
+}
+/* Les mots en italique dégradé l'emportent sur la couleur de base des titres */
+.lp-hero h1 .serif.grad, .lp-h2 .serif.grad { color: transparent; background: var(--grad); -webkit-background-clip: text; background-clip: text; }

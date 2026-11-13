@@ -70,3 +70,14 @@
   .vp-side { max-width: none; }
   .gen-step span:last-child { font-size: 11px; }
 }
+
+/* Couleur */
+.dl-btn { background: var(--grad); color: #1a0a06; box-shadow: 0 14px 34px -14px rgba(255, 61, 107, 0.8); }
+.dl-btn:hover { background: var(--grad); filter: brightness(1.06); }
+.dl-btn .dl-fill { background: rgba(255, 255, 255, 0.35); }
+.dl-btn.loading .spinner.sm { border-color: rgba(26, 10, 6, 0.25); border-top-color: #1a0a06; }
+.vp-player { box-shadow: 0 40px 90px -40px rgba(255, 61, 107, 0.55); border: 1px solid transparent; background: linear-gradient(#000, #000) padding-box, var(--grad) border-box; }
+.gen { background: radial-gradient(100% 140% at 0% 0%, rgba(255, 106, 43, 0.14), transparent 55%), radial-gradient(100% 140% at 100% 100%, rgba(198, 77, 255, 0.12), transparent 55%), var(--panel); }
+.gen-bar > div { background: var(--grad); }
+.gen-pct { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.gen-step.now .dot { background: var(--grad); color: #1a0a06; border-color: transparent; box-shadow: 0 0 0 5px rgba(255, 61, 107, 0.15); }

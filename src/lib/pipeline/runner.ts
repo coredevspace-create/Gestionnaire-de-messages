@@ -315,6 +315,7 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
       countryId: ctx.series.country,
       episodes: ctx.series.episodes_total,
       cast: ctx.cast,
+      seconds: ctx.video.seconds,
     }));
     await saveMetrics(ctx);
     await sql("UPDATE series SET plan_json = $2, title = $3 WHERE id = $1", [

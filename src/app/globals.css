@@ -15,6 +15,13 @@
   --text-2: #a1a1aa;
   --text-3: #6b6b74;
   --accent: #ff6b2c;
+  --grad: linear-gradient(115deg, #ffb21f 0%, #ff6a2b 32%, #ff3d6b 66%, #c64dff 100%);
+  --grad-soft: linear-gradient(115deg, rgba(255, 178, 31, 0.16), rgba(255, 61, 107, 0.16), rgba(198, 77, 255, 0.16));
+  --pink: #ff3d6b;
+  --violet: #c64dff;
+  --yellow: #ffcf3f;
+  --mint: #3ee6b0;
+  --sky: #4db8ff;
   --accent-2: #ff8a52;
   --accent-soft: rgba(255, 107, 44, 0.12);
   --ok: #4ade80;
@@ -128,3 +135,27 @@ code { font-size: 12.5px; color: var(--text-2); word-break: break-word; }
 .launch-overlay .clap { font-size: 44px; }
 .launch-overlay h2 { font-size: clamp(24px, 3.4vw, 34px); margin: 14px 0 6px; }
 @keyframes fadein { from { opacity: 0; } }
+
+/* ---------- Couleur ---------- */
+.grad-text, .serif.grad {
+  background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+  padding-right: 0.06em; /* évite que l'italique soit rogné */
+}
+.btn-grad, button.btn-grad {
+  position: relative; overflow: hidden; background: var(--grad); color: #1a0a06; font-weight: 650;
+  box-shadow: 0 12px 30px -12px rgba(255, 61, 107, 0.65);
+}
+.btn-grad:hover, button.btn-grad:hover { background: var(--grad); filter: brightness(1.06); box-shadow: 0 16px 38px -12px rgba(255, 61, 107, 0.8); }
+.btn-grad::after {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent); transform: skewX(-20deg);
+  animation: shine 3.2s ease-in-out infinite;
+}
+@keyframes shine { 0%, 60% { left: -60%; } 100% { left: 130%; } }
+
+/* Apparition au défilement */
+.js-reveal [data-reveal] { opacity: 0; transform: translateY(26px); transition: opacity 0.7s ease var(--d, 0ms), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms); }
+.js-reveal [data-reveal].in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .btn-grad::after { animation: none; }
+}

@@ -11,6 +11,10 @@ import { Icon } from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
+const TILE = ["#ff6a2b", "#ff3d6b", "#c64dff", "#4db8ff", "#3ee6b0", "#ffb21f"];
+const THEMES = ["Le héros sous-estimé", "Injustice et karma", "Drame familial", "Test du patron", "Héritage caché", "Mariage qui tourne mal", "Pouvoir secret", "Belle-mère terrible", "Tournoi du milliard", "Le cousin du village"];
+const QUOTE_BG = ["linear-gradient(160deg,#5a1f0c,#1d0f12 65%)", "linear-gradient(160deg,#3b1257,#140d1c 65%)"];
+
 const FEATURES = [
   { icon: "pen", title: "Un scénario qui accroche", text: "Accroche en deux secondes, enjeu clair, fin coupée au meilleur moment." },
   { icon: "repeat", title: "Des personnages constants", text: "Chaque personnage garde le même visage, d'un plan à l'autre et d'un épisode à l'autre." },
@@ -55,16 +59,16 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
       <div className="frame"><img src={FALLBACK_IMAGES[0].src} alt="" /></div>
       <div className="meta"><b>{FALLBACK_IMAGES[0].title}</b><span>Partie 1</span></div>
     </div>,
-    <div key="q0" className="lp-clip">
-      <div className="frame text"><span className="who">{quotes[0].title}</span><blockquote>{quotes[0].hook}</blockquote><span className="who">Partie 1</span></div>
+    <div key="q0" className="lp-clip" style={{ ["--glow" as string]: "rgba(255,106,43,.7)" }}>
+      <div className="frame text" style={{ ["--bgq" as string]: QUOTE_BG[0] }}><span className="who">{quotes[0].title}</span><blockquote>{quotes[0].hook}</blockquote><span className="who">Partie 1</span></div>
       <div className="meta"><b>{quotes[0].title}</b><span>Partie 1</span></div>
     </div>,
     <div key="i1" className="lp-clip">
       <div className="frame"><img src={FALLBACK_IMAGES[1].src} alt="" /></div>
       <div className="meta"><b>{FALLBACK_IMAGES[1].title}</b><span>Partie 2</span></div>
     </div>,
-    <div key="q1" className="lp-clip">
-      <div className="frame text"><span className="who">{quotes[1].title}</span><blockquote>{quotes[1].hook}</blockquote><span className="who">Partie 1</span></div>
+    <div key="q1" className="lp-clip" style={{ ["--glow" as string]: "rgba(198,77,255,.7)" }}>
+      <div className="frame text" style={{ ["--bgq" as string]: QUOTE_BG[1] }}><span className="who">{quotes[1].title}</span><blockquote>{quotes[1].hook}</blockquote><span className="who">Partie 1</span></div>
       <div className="meta"><b>{quotes[1].title}</b><span>Partie 1</span></div>
     </div>,
   ].slice(0, videos.length > 4 ? 8 : 4);
@@ -73,18 +77,19 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
     <>
       {/* ---------- Hero ---------- */}
       <section className="lp-hero">
+        <div className="lp-aurora" aria-hidden="true"><span /><span /><span /></div>
         <div className="lp-wrap">
-          <div>
+          <div data-reveal="0">
             <span className="lp-pill"><b>Nouveau</b> Le studio des mini-séries IA</span>
             <h1>
-              Des mini-séries que l&apos;on regarde <span className="serif">jusqu&apos;au bout.</span>
+              Des mini-séries que l&apos;on regarde <span className="serif grad">jusqu&apos;au bout.</span>
             </h1>
             <p>
               Choisis une histoire. On écrit le scénario, on fait parler les personnages, on ajoute les sous-titres et la
               musique. Tu publies.
             </p>
             <div className="lp-cta">
-              <Link href="/signup" className="btn btn-lg">
+              <Link href="/signup" className="btn btn-lg btn-grad">
                 Créer ma première vidéo <Icon name="arrow" size={17} />
               </Link>
               <Link href="#exemples" className="btn btn-ghost btn-lg">
@@ -97,7 +102,7 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
               <div><b>0 €</b><span>pour essayer</span></div>
             </div>
           </div>
-          <div className="lp-device">
+          <div className="lp-device" data-reveal="2">
             <div className="screen">
               <div className="island" />
               {videos[0] ? (
@@ -109,6 +114,10 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
                 </>
               )}
             </div>
+            <div className="lp-likes" aria-hidden="true">
+              <span><Icon name="heart" size={20} />1,2 M</span>
+              <span><Icon name="chat" size={19} />8 431</span>
+            </div>
             <div className="lp-note">
               <span className="ic"><Icon name="mic" size={16} /></span>
               <div>Voix et lèvres synchronisées<small>prête en quelques minutes</small></div>
@@ -117,15 +126,23 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
         </div>
       </section>
 
+      <div className="lp-ticker" aria-hidden="true">
+        <div className="lp-ticker-track">
+          {[...THEMES, ...THEMES].map((t, i) => (
+            <span key={i} style={{ ["--c" as string]: TILE[i % TILE.length] }}>{t}</span>
+          ))}
+        </div>
+      </div>
+
       {/* ---------- Exemples ---------- */}
       <section className="lp-sec" id="exemples">
         <div className="lp-wrap">
           <span className="lp-label">Exemples</span>
-          <h2 className="lp-h2">
-            Des épisodes qui <span className="serif">accrochent.</span>
+          <h2 className="lp-h2" data-reveal="0">
+            Des épisodes qui <span className="serif grad">accrochent.</span>
           </h2>
           <p className="lp-lead">Une accroche dès la première seconde, du suspense à la fin, et l&apos;envie de voir la suite.</p>
-          <div className="lp-reel">{reel}</div>
+          <div className="lp-reel" data-reveal="1">{reel}</div>
         </div>
       </section>
 
@@ -133,10 +150,10 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
       <section className="lp-sec" id="comment">
         <div className="lp-wrap">
           <span className="lp-label">Fonctionnement</span>
-          <h2 className="lp-h2">
-            Trois étapes. <span className="serif">Aucun montage.</span>
+          <h2 className="lp-h2" data-reveal="0">
+            Trois étapes. <span className="serif grad">Aucun montage.</span>
           </h2>
-          <div className="lp-steps">
+          <div className="lp-steps" data-reveal="1">
             <div>
               <span className="n">01</span>
               <h3>Choisis une histoire</h3>
@@ -154,8 +171,8 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
             </div>
           </div>
           <div className="lp-feats">
-            {FEATURES.map((f) => (
-              <div key={f.title}>
+            {FEATURES.map((f, i) => (
+              <div key={f.title} data-reveal={i % 3} style={{ ["--tile" as string]: TILE[i] }}>
                 <span className="ic"><Icon name={f.icon} size={17} /></span>
                 <h3>{f.title}</h3>
                 <p>{f.text}</p>
@@ -169,11 +186,11 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
       <section className="lp-sec">
         <div className="lp-wrap">
           <span className="lp-label">Univers</span>
-          <h2 className="lp-h2">
-            Ton public, <span className="serif">tes histoires.</span>
+          <h2 className="lp-h2" data-reveal="0">
+            Ton public, <span className="serif grad">tes histoires.</span>
           </h2>
           <p className="lp-lead">{total} séries prêtes à lancer, dans deux univers.</p>
-          <div className="lp-worlds">
+          <div className="lp-worlds" data-reveal="1">
             <div className="lp-world">
               <img src="/visuals/foule.jpg" alt="" />
               <div className="lp-flags">{africa.map((c) => <Flag key={c.id} id={c.id} size={16} />)}</div>
@@ -195,8 +212,8 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
       <section className="lp-sec" id="tarifs">
         <div className="lp-wrap">
           <span className="lp-label">Tarifs</span>
-          <h2 className="lp-h2">
-            Simple. <span className="serif">Sans engagement.</span>
+          <h2 className="lp-h2" data-reveal="0">
+            Simple. <span className="serif grad">Sans engagement.</span>
           </h2>
           <p className="lp-lead">
             {config.starterCredits} crédits offerts pour essayer. Une vidéo de {FORMATS.short20.seconds} s = {FORMATS.short20.credits} crédits.
@@ -207,7 +224,7 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
               Annuel · {12 - YEARLY_MONTHS_PAID} mois offerts
             </Link>
           </div>
-          <div className="lp-prices">
+          <div className="lp-prices" data-reveal="1">
             {(Object.keys(PLANS) as PlanId[]).map((id) => {
               const p = PLANS[id];
               const pop = "popular" in p && p.popular;
@@ -228,7 +245,7 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
                       <li key={t}><Icon name="check" size={15} />{t}</li>
                     ))}
                   </ul>
-                  <Link href="/signup" className={`btn${pop ? "" : " btn-ghost"}`}>Commencer</Link>
+                  <Link href="/signup" className={`btn${pop ? " btn-grad" : " btn-ghost"}`}>Commencer</Link>
                 </div>
               );
             })}
@@ -242,7 +259,7 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
           <div>
             <span className="lp-label">FAQ</span>
             <h2 className="lp-h2" style={{ fontSize: "clamp(32px, 3.6vw, 44px)" }}>
-              Questions <span className="serif">fréquentes.</span>
+              Questions <span className="serif grad">fréquentes.</span>
             </h2>
           </div>
           <div>
@@ -258,7 +275,7 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
 
       {/* ---------- Final ---------- */}
       <section className="lp-sec lp-final">
-        <div className="lp-wrap">
+        <div className="lp-wrap" data-reveal="0">
           <h2>
             Ta prochaine série <span className="serif">commence ici.</span>
           </h2>

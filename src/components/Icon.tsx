@@ -24,12 +24,14 @@ const PATHS: Record<string, string[]> = {
   pen: ["M4 20h4L19 9l-4-4L4 16z", "M13 7l4 4"],
   layers: ["M12 3l9 5-9 5-9-5z", "M3 13l9 5 9-5"],
   star: ["M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"],
+  heart: ["M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"],
+  chat: ["M4 5h16v11H9l-5 4z"],
   refresh: ["M20 11a8 8 0 0 0-14.5-4.5L4 8", "M4 4v4h4", "M4 13a8 8 0 0 0 14.5 4.5L20 16", "M20 20v-4h-4"],
 };
 
 export function Icon({ name, size = 18, className }: { name: keyof typeof PATHS | string; size?: number; className?: string }) {
   const paths = PATHS[name] ?? [];
-  const filled = name === "play" || name === "star";
+  const filled = name === "play" || name === "star" || name === "heart";
   return (
     <svg
       width={size}
