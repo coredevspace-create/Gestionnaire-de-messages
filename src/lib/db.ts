@@ -84,7 +84,13 @@ CREATE TABLE IF NOT EXISTS credit_ledger (
 `;
 
 async function connect(): Promise<Exec> {
-  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  // Noms possibles selon l'intégration Vercel (avec ou sans préfixe personnalisé).
+  const url =
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.STORAGE_DATABASE_URL ||
+    process.env.STORAGE_URL ||
+    Object.entries(process.env).find(([k, v]) => k.endsWith("_DATABASE_URL") && v)?.[1];
   let exec: Exec;
   if (url) {
     const { Pool } = await import("pg");
