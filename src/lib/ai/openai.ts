@@ -2,34 +2,75 @@ import { config } from "../config";
 
 const BASE = "https://api.openai.com/v1";
 
+/**
+ * Modèles essayés dans l'ordre. Le premier est celui de la variable d'environnement
+ * (si définie). Si OpenAI répond que le modèle n'existe pas / n'est pas accessible,
+ * on passe au suivant au lieu de faire échouer la vidéo.
+ */
+const IMAGE_MODELS = ["gpt-image-2", "gpt-image-2.5-sunburst", "gpt-image-2.5-flare"];
+const TEXT_MODELS = ["gpt-5-mini", "gpt-5.1-mini", "gpt-4.1-mini", "gpt-4o-mini"];
+
+function candidates(preferred: string | undefined, list: string[]) {
+  return [...new Set([preferred, ...list].filter(Boolean) as string[])];
+}
+
+// Modèle qui a fonctionné en dernier (évite de retester les modèles morts à chaque appel).
+const working: Record<"image" | "text", string | undefined> = { image: undefined, text: undefined };
+
 function headers(extra: Record<string, string> = {}) {
   return { Authorization: `Bearer ${config.openaiKey}`, ...extra };
 }
 
+class ModelUnavailable extends Error {}
+
 async function check(res: Response, what: string) {
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`OpenAI ${what} a échoué (${res.status}) : ${body.slice(0, 400)}`);
+  if (res.ok) return;
+  const body = await res.text().catch(() => "");
+  const modelProblem =
+    (res.status === 400 || res.status === 403 || res.status === 404) &&
+    /model/i.test(body) &&
+    /(does not exist|not found|invalid_value|model_not_found|do not have access|not supported)/i.test(body);
+  const msg = `OpenAI ${what} a échoué (${res.status}) : ${body.slice(0, 400)}`;
+  throw modelProblem ? new ModelUnavailable(msg) : new Error(msg);
+}
+
+async function withModels<T>(kind: "image" | "text", fn: (model: string) => Promise<T>): Promise<T> {
+  const preferred = kind === "image" ? process.env.OPENAI_IMAGE_MODEL : process.env.OPENAI_TEXT_MODEL;
+  const list = candidates(working[kind] ?? preferred, kind === "image" ? IMAGE_MODELS : TEXT_MODELS);
+  let last: Error | undefined;
+  for (const model of list) {
+    try {
+      const out = await fn(model);
+      working[kind] = model;
+      return out;
+    } catch (e) {
+      if (!(e instanceof ModelUnavailable)) throw e;
+      console.warn(`[openai] modèle ${model} indisponible, essai du suivant`);
+      last = e;
+    }
   }
+  throw last ?? new Error("Aucun modèle OpenAI disponible");
 }
 
 /** Appel texte qui renvoie un objet JSON. */
 export async function chatJSON<T>(system: string, user: string): Promise<T> {
-  const res = await fetch(`${BASE}/chat/completions`, {
-    method: "POST",
-    headers: headers({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      model: config.openaiTextModel,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    }),
+  return withModels("text", async (model) => {
+    const res = await fetch(`${BASE}/chat/completions`, {
+      method: "POST",
+      headers: headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        model,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
+    });
+    await check(res, "texte");
+    const json = (await res.json()) as { choices: { message: { content: string } }[] };
+    return JSON.parse(json.choices[0].message.content) as T;
   });
-  await check(res, "texte");
-  const json = (await res.json()) as { choices: { message: { content: string } }[] };
-  return JSON.parse(json.choices[0].message.content) as T;
 }
 
 type ImageResponse = { data: { b64_json?: string; url?: string }[] };
@@ -43,24 +84,30 @@ async function toBuffer(json: ImageResponse): Promise<Buffer> {
 
 /** Génère une image à partir d'un prompt (planche de personnage). */
 export async function generateImage(prompt: string, size = "1536x1024"): Promise<Buffer> {
-  const res = await fetch(`${BASE}/images/generations`, {
-    method: "POST",
-    headers: headers({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ model: config.openaiImageModel, prompt, size, n: 1 }),
+  return withModels("image", async (model) => {
+    const res = await fetch(`${BASE}/images/generations`, {
+      method: "POST",
+      headers: headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ model, prompt, size, n: 1 }),
+    });
+    await check(res, "image");
+    return toBuffer((await res.json()) as ImageResponse);
   });
-  await check(res, "image");
-  return toBuffer((await res.json()) as ImageResponse);
 }
 
 /** Génère une image en s'appuyant sur des images de référence (planches des personnages). */
 export async function editImage(prompt: string, refs: Buffer[], size = "1024x1536"): Promise<Buffer> {
-  const form = new FormData();
-  form.append("model", config.openaiImageModel);
-  form.append("prompt", prompt);
-  form.append("size", size);
-  form.append("n", "1");
-  refs.forEach((buf, i) => form.append("image[]", new Blob([new Uint8Array(buf)], { type: "image/png" }), `ref-${i}.png`));
-  const res = await fetch(`${BASE}/images/edits`, { method: "POST", headers: headers(), body: form });
-  await check(res, "image (références)");
-  return toBuffer((await res.json()) as ImageResponse);
+  return withModels("image", async (model) => {
+    const form = new FormData();
+    form.append("model", model);
+    form.append("prompt", prompt);
+    form.append("size", size);
+    form.append("n", "1");
+    refs.forEach((buf, i) =>
+      form.append("image[]", new Blob([new Uint8Array(buf)], { type: "image/png" }), `ref-${i}.png`),
+    );
+    const res = await fetch(`${BASE}/images/edits`, { method: "POST", headers: headers(), body: form });
+    await check(res, "image (références)");
+    return toBuffer((await res.json()) as ImageResponse);
+  });
 }

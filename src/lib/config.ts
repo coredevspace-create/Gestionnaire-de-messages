@@ -8,7 +8,7 @@ export const config = {
   openaiKey: process.env.OPENAI_API_KEY || "",
   xaiKey: process.env.XAI_API_KEY || "",
   openaiTextModel: process.env.OPENAI_TEXT_MODEL || "gpt-5-mini",
-  openaiImageModel: process.env.OPENAI_IMAGE_MODEL || "gpt-image-1",
+  openaiImageModel: process.env.OPENAI_IMAGE_MODEL || "gpt-image-2",
   xaiVideoModel: process.env.XAI_VIDEO_MODEL || "grok-imagine-video-1.5",
   xaiVideoResolution: process.env.XAI_VIDEO_RESOLUTION || "480p",
   clipSeconds: Number(process.env.CLIP_SECONDS || 10),
