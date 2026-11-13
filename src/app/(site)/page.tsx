@@ -13,7 +13,12 @@ export const dynamic = "force-dynamic";
 
 const TILE = ["#ff6a2b", "#ff3d6b", "#c64dff", "#4db8ff", "#3ee6b0", "#ffb21f"];
 const THEMES = ["Le héros sous-estimé", "Injustice et karma", "Drame familial", "Test du patron", "Héritage caché", "Mariage qui tourne mal", "Pouvoir secret", "Belle-mère terrible", "Tournoi du milliard", "Le cousin du village"];
-const QUOTE_BG = ["linear-gradient(160deg,#5a1f0c,#1d0f12 65%)", "linear-gradient(160deg,#3b1257,#140d1c 65%)"];
+const QUOTE_BG = [
+  "linear-gradient(160deg,#5a1f0c,#1d0f12 65%)",
+  "linear-gradient(160deg,#3b1257,#140d1c 65%)",
+  "linear-gradient(160deg,#0f3a52,#0c1419 65%)",
+  "linear-gradient(160deg,#4a3a08,#17140b 65%)",
+];
 
 const FEATURES = [
   { icon: "pen", title: "Un scénario qui accroche", text: "Accroche en deux secondes, enjeu clair, fin coupée au meilleur moment." },
@@ -33,6 +38,13 @@ const FAQ = [
   ["Puis-je arrêter quand je veux ?", "Oui. Les offres sont sans engagement et se résilient en un clic depuis ton compte."],
 ];
 
+/** Vidéos de démonstration (générées avec l'outil), dans public/reels. */
+const LOCAL_REELS = [
+  { src: "/reels/cantine.mp4", poster: "/reels/cantine.jpg", title: "La loi de la cantine", part: 1 },
+  { src: "/reels/transfert.mp4", poster: "/reels/transfert.jpg", title: "Le transfert qui n'arrive jamais", part: 1 },
+  { src: "/reels/cantine-2.mp4", poster: "/reels/cantine-2.jpg", title: "La loi de la cantine", part: 2 },
+];
+
 const FALLBACK_IMAGES = [
   { src: "/visuals/peche-valise.jpg", title: "Le transfert qui n'arrive jamais", part: 1 },
   { src: "/visuals/coco.jpg", title: "L'oncle de Paris", part: 2 },
@@ -43,35 +55,43 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
   const yearly = (await searchParams).periode === "annuel";
   const videos = await showcaseVideos(8);
   const quotes: Story[] = [WORLD_STORIES[1], STORIES.find((s) => s.id === "test-du-patron") ?? STORIES[0]];
+  const EXTRA_QUOTES: Story[] = [WORLD_STORIES[2], STORIES.find((s) => s.id === "fiance-pauvre") ?? STORIES[1]];
   const africa = COUNTRIES.filter((c) => c.id !== "monde");
   const total = STORIES.length + WORLD_STORIES.length;
 
-  const reel = [
-    ...videos.map((v) => (
-      <div key={`v${v.id}`} className="lp-clip">
-        <div className="frame">
-          <video src={v.src} poster={v.poster ?? undefined} muted loop playsInline autoPlay preload="metadata" />
-        </div>
-        <div className="meta"><b>{v.title}</b><span>Partie {v.episode}</span></div>
+  // Vidéos d'exemple : celles mises en vitrine depuis l'admin, puis nos vidéos de démonstration,
+  // puis des affiches/images pour compléter jusqu'à 8.
+  const clip = (key: string, src: string, poster: string | undefined, title: string, part: number) => (
+    <div key={key} className="lp-clip">
+      <div className="frame">
+        <video src={src} poster={poster} muted loop playsInline autoPlay preload="metadata" />
       </div>
-    )),
-    <div key="i0" className="lp-clip">
-      <div className="frame"><img src={FALLBACK_IMAGES[0].src} alt="" /></div>
-      <div className="meta"><b>{FALLBACK_IMAGES[0].title}</b><span>Partie 1</span></div>
-    </div>,
+      <div className="meta"><b>{title}</b><span>Partie {part}</span></div>
+    </div>
+  );
+  const reel = [
+    ...videos.map((v) => clip(`v${v.id}`, v.src, v.poster ?? undefined, v.title, v.episode)),
+    ...LOCAL_REELS.map((r) => clip(r.src, r.src, r.poster, r.title, r.part)),
     <div key="q0" className="lp-clip" style={{ ["--glow" as string]: "rgba(255,106,43,.7)" }}>
       <div className="frame text" style={{ ["--bgq" as string]: QUOTE_BG[0] }}><span className="who">{quotes[0].title}</span><blockquote>{quotes[0].hook}</blockquote><span className="who">Partie 1</span></div>
       <div className="meta"><b>{quotes[0].title}</b><span>Partie 1</span></div>
-    </div>,
-    <div key="i1" className="lp-clip">
-      <div className="frame"><img src={FALLBACK_IMAGES[1].src} alt="" /></div>
-      <div className="meta"><b>{FALLBACK_IMAGES[1].title}</b><span>Partie 2</span></div>
     </div>,
     <div key="q1" className="lp-clip" style={{ ["--glow" as string]: "rgba(198,77,255,.7)" }}>
       <div className="frame text" style={{ ["--bgq" as string]: QUOTE_BG[1] }}><span className="who">{quotes[1].title}</span><blockquote>{quotes[1].hook}</blockquote><span className="who">Partie 1</span></div>
       <div className="meta"><b>{quotes[1].title}</b><span>Partie 1</span></div>
     </div>,
-  ].slice(0, videos.length > 4 ? 8 : 4);
+    <div key="i1" className="lp-clip">
+      <div className="frame"><img src={FALLBACK_IMAGES[1].src} alt="" /></div>
+      <div className="meta"><b>{FALLBACK_IMAGES[1].title}</b><span>Partie 2</span></div>
+    </div>,
+    ...EXTRA_QUOTES.map((q, i) => (
+      <div key={`x${i}`} className="lp-clip" style={{ ["--glow" as string]: "rgba(77,184,255,.6)" }}>
+        <div className="frame text" style={{ ["--bgq" as string]: QUOTE_BG[(i % 2) + 2] }}><span className="who">{q.title}</span><blockquote>{q.hook}</blockquote><span className="who">Partie 1</span></div>
+        <div className="meta"><b>{q.title}</b><span>Partie 1</span></div>
+      </div>
+    )),
+  ].slice(0, 8);
+  const hero = videos[0] ?? { src: LOCAL_REELS[0].src, poster: LOCAL_REELS[0].poster };
 
   return (
     <>
@@ -105,14 +125,7 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
           <div className="lp-device" data-reveal="2">
             <div className="screen">
               <div className="island" />
-              {videos[0] ? (
-                <video src={videos[0].src} poster={videos[0].poster ?? undefined} autoPlay muted loop playsInline />
-              ) : (
-                <>
-                  <img src="/visuals/peche-valise.jpg" alt="Personnage d'une mini-série" />
-                  <div className="caption">ON DIT QUOI ?!</div>
-                </>
-              )}
+              <video src={hero.src} poster={hero.poster ?? undefined} autoPlay muted loop playsInline />
             </div>
             <div className="lp-likes" aria-hidden="true">
               <span><Icon name="heart" size={20} />1,2 M</span>
