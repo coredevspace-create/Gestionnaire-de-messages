@@ -17,7 +17,7 @@ async function insertVideo(
 ): Promise<number> {
   const f = FORMATS[formatId];
   if (!(await changeCredits(user.id, -f.credits, `Vidéo ${series.title} ép. ${episode}`))) {
-    throw new UserError(`Crédits insuffisants : il faut ${f.credits} crédits.`);
+    throw new UserError(`Crédits insuffisants : il faut ${f.credits} crédits. Recharge ou abonne-toi depuis la page Abonnement.`);
   }
   const row = await one<{ id: number }>(
     `INSERT INTO videos (user_id, series_id, episode, format, seconds, credits_cost, mock, music)

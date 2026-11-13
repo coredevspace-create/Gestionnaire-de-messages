@@ -74,8 +74,6 @@ CREATE TABLE IF NOT EXISTS videos (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS metrics_json TEXT;
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS music BOOLEAN NOT NULL DEFAULT true;
 CREATE TABLE IF NOT EXISTS bg_jobs (
   id SERIAL PRIMARY KEY,
   kind TEXT NOT NULL,
@@ -104,6 +102,17 @@ CREATE TABLE IF NOT EXISTS credit_ledger (
   reason TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Évolutions du schéma (après la création de toutes les tables)
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS metrics_json TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS sub_credits INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_interval TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_status TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
+ALTER TABLE credit_ledger ADD COLUMN IF NOT EXISTS ref TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS credit_ledger_ref ON credit_ledger(ref) WHERE ref IS NOT NULL;
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS music BOOLEAN NOT NULL DEFAULT true;
 `;
 
 async function connect(): Promise<Exec> {
@@ -153,7 +162,14 @@ export async function one<T = Record<string, unknown>>(text: string, params: unk
 export type User = {
   id: number;
   email: string;
+  /** Crédits permanents (recharges, bienvenue, remboursements) */
   credits: number;
+  /** Crédits de l'abonnement, remplacés à chaque renouvellement */
+  sub_credits: number;
+  plan: string | null;
+  plan_interval: string | null;
+  plan_status: string | null;
+  stripe_customer_id: string | null;
   onboarded: boolean;
   monetized: boolean;
   country: string;
@@ -206,13 +222,45 @@ export type Character = {
   sheet_path: string | null;
 };
 
-/** Mouvement de crédits atomique. Retourne false si solde insuffisant. */
-export async function changeCredits(userId: number, delta: number, reason: string): Promise<boolean> {
-  const row = await one(
-    "UPDATE users SET credits = credits + $2 WHERE id = $1 AND credits + $2 >= 0 RETURNING credits",
-    [userId, delta],
-  );
-  if (!row) return false;
-  await sql("INSERT INTO credit_ledger (user_id, delta, reason) VALUES ($1, $2, $3)", [userId, delta, reason]);
+/** Solde total affiché. */
+export function totalCredits(u: { credits: number; sub_credits?: number }) {
+  return u.credits + (u.sub_credits ?? 0);
+}
+
+/**
+ * Mouvement de crédits atomique. Retourne false si solde insuffisant.
+ * Débit : on prend d'abord les crédits d'abonnement, puis les crédits permanents.
+ * Crédit (remboursement, recharge, admin) : va dans les crédits permanents.
+ */
+export async function changeCredits(userId: number, delta: number, reason: string, ref?: string): Promise<boolean> {
+  if (ref) {
+    // Idempotence : un même paiement Stripe ne crédite qu'une fois.
+    const fresh = await one("INSERT INTO credit_ledger (user_id, delta, reason, ref) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING RETURNING id", [userId, delta, reason, ref]);
+    if (!fresh) return true;
+  }
+  const row =
+    delta >= 0
+      ? await one("UPDATE users SET credits = credits + $2 WHERE id = $1 RETURNING id", [userId, delta])
+      : await one(
+          `UPDATE users SET
+             sub_credits = GREATEST(sub_credits + $2, 0),
+             credits = credits + LEAST(sub_credits + $2, 0)
+           WHERE id = $1 AND credits + sub_credits + $2 >= 0 RETURNING id`,
+          [userId, delta],
+        );
+  if (!row) {
+    if (ref) await sql("DELETE FROM credit_ledger WHERE ref = $1", [ref]);
+    return false;
+  }
+  if (!ref) await sql("INSERT INTO credit_ledger (user_id, delta, reason) VALUES ($1, $2, $3)", [userId, delta, reason]);
   return true;
+}
+
+/** Renouvellement d'abonnement : remplace les crédits d'abonnement (une seule fois par facture). */
+export async function resetSubCredits(userId: number, amount: number, reason: string, ref: string): Promise<void> {
+  const fresh = await one(
+    "INSERT INTO credit_ledger (user_id, delta, reason, ref) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING RETURNING id",
+    [userId, amount, reason, ref],
+  );
+  if (fresh) await sql("UPDATE users SET sub_credits = $2 WHERE id = $1", [userId, amount]);
 }

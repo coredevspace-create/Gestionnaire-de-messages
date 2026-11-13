@@ -42,6 +42,20 @@ ffmpeg est fourni par `ffmpeg-static` et la police des sous-titres est dans `fon
 Si la « Deployment Protection » de Vercel est active sur les previews, activer
 « Protection Bypass for Automation » pour que les auto-relances passent.
 
+## Paiement (Stripe)
+
+Offres et prix : `src/lib/plans.ts` (modifier un prix suffit : le produit Stripe correspondant est créé
+automatiquement au premier achat).
+
+1. Stripe → Développeurs → Clés API : copier la clé secrète dans `STRIPE_SECRET_KEY`.
+2. Stripe → Développeurs → Webhooks → Ajouter un endpoint : `https://TON-SITE/api/stripe/webhook`,
+   événements `checkout.session.completed`, `invoice.paid`, `customer.subscription.updated`,
+   `customer.subscription.deleted`. Copier le secret de signature dans `STRIPE_WEBHOOK_SECRET`.
+3. Stripe → Paramètres → Billing → Portail client : enregistrer la configuration (résiliation, factures).
+
+Crédits : ceux de l'abonnement sont remis à niveau à chaque facture payée (non cumulables) ;
+ceux des recharges sont permanents. On consomme d'abord ceux de l'abonnement.
+
 ## Développement local
 
 Prérequis : Node.js ≥ 22.13.
@@ -80,6 +94,7 @@ src/app/                     pages (Next.js App Router) et actions serveur
 
 ## Limites connues du MVP
 
-- Pas de paiement (Stripe) ni d'affiliation pour l'instant — crédits ajoutés via `/admin`.
+- Pas encore de Mobile Money ni d'affiliation.
+- Pages légales (CGV, confidentialité, mentions) : modèles à compléter.
 - Les appels OpenAI / Grok n'ont pas encore été testés avec de vraies clés (format de l'API Grok à valider).
 - Les vidéos stockées sur Vercel Blob ont une URL publique (difficile à deviner, mais pas protégée).

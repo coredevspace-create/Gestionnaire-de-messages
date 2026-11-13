@@ -11,8 +11,8 @@ import { adminGrantCredits } from "../actions";
 export default async function AdminPage() {
   const user = await requireUser();
   if (!isAdmin(user)) redirect("/");
-  const users = await sql<{ id: number; email: string; credits: number; monetized: boolean; country: string; created_at: Date }>(
-    "SELECT id, email, credits, monetized, country, created_at FROM users ORDER BY id DESC LIMIT 200",
+  const users = await sql<{ id: number; email: string; credits: number; monetized: boolean; country: string; created_at: Date; plan: string | null }>(
+    "SELECT id, email, credits + sub_credits AS credits, monetized, country, created_at, plan FROM users ORDER BY id DESC LIMIT 200",
   );
   const stats = await sql<{ status: string; n: number }>("SELECT status, COUNT(*)::int AS n FROM videos GROUP BY status");
   const recent = await sql<{ id: number; format: string; seconds: number; credits_cost: number; status: string; mock: boolean; metrics_json: string | null; email: string }>(
@@ -64,10 +64,10 @@ export default async function AdminPage() {
         <button>Ajouter</button>
       </form>
       <table>
-        <thead><tr><th>Email</th><th>Crédits</th><th>Monétisé</th><th>Pays</th><th>Inscrit</th></tr></thead>
+        <thead><tr><th>Email</th><th>Crédits</th><th>Offre</th><th>Monétisé</th><th>Pays</th><th>Inscrit</th></tr></thead>
         <tbody>
           {users.map((u) => (
-            <tr key={u.id}><td>{u.email}</td><td>{u.credits}</td><td>{u.monetized ? "oui" : "non"}</td><td>{u.country}</td><td>{new Date(u.created_at).toLocaleDateString("fr-FR")}</td></tr>
+            <tr key={u.id}><td>{u.email}</td><td>{u.credits}</td><td>{u.plan ?? "—"}</td><td>{u.monetized ? "oui" : "non"}</td><td>{u.country}</td><td>{new Date(u.created_at).toLocaleDateString("fr-FR")}</td></tr>
           ))}
         </tbody>
       </table>

@@ -11,6 +11,8 @@ import { isMood } from "@/lib/music";
 import { putMedia } from "@/lib/storage";
 import { startPregen } from "@/lib/pregen";
 import { kickPregen } from "@/lib/pipeline/kick";
+import { checkoutPlan, checkoutTopup, portalUrl, stripeEnabled } from "@/lib/stripe";
+import { isPlan, isTopup } from "@/lib/plans";
 
 export type FormState = { error?: string } | undefined;
 
@@ -161,4 +163,37 @@ export async function adminStopPregen(fd: FormData) {
     Number(str(fd, "id")),
   ]);
   revalidatePath("/admin");
+}
+
+// ---------------- Paiements ----------------
+
+async function originUrl() {
+  const { baseUrl } = await import("@/lib/pipeline/kick");
+  return baseUrl();
+}
+
+export async function startCheckout(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!stripeEnabled()) return { error: "Le paiement n'est pas encore activé." };
+  if (fd.get("cgv") === null) {
+    return { error: "Coche la case pour accepter les conditions générales et l'accès immédiat au service." };
+  }
+  const item = str(fd, "item");
+  const interval = str(fd, "interval") === "year" ? "year" : "month";
+  let url: string;
+  if (isPlan(item)) {
+    if (user.plan && user.plan_status !== "canceled") {
+      return { error: "Tu as déjà un abonnement : utilise « Gérer mon abonnement » pour le modifier." };
+    }
+    url = await checkoutPlan(user, item, interval, await originUrl());
+  } else if (isTopup(item)) {
+    url = await checkoutTopup(user, item, await originUrl());
+  } else return { error: "Offre inconnue." };
+  redirect(url);
+}
+
+export async function openPortal() {
+  const user = await requireUser();
+  if (!stripeEnabled()) redirect("/abonnement");
+  redirect(await portalUrl(user, await originUrl()));
 }
