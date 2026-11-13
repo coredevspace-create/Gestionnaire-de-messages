@@ -48,7 +48,7 @@ export type Script = {
 
 function castText(cast: Character[]) {
   return cast
-    .map((c) => `- ${c.name} : ${fruitLabel(c.fruit)} (${c.role}) — ${c.look}`)
+    .map((c) => `- ${c.name} — RÔLE : ${c.role} — ${fruitLabel(c.fruit)}, ${c.look}`)
     .join("\n");
 }
 
@@ -80,8 +80,11 @@ L'histoire doit être simple à suivre : un enjeu clair (argent, mariage, trahis
 ${VIRAL_FORMULA}
 Réponds UNIQUEMENT en JSON : {"title": string, "voices": {"<nom exact du personnage>": "<voice description in English>"}, "episodes": [{"n": number, "title": string, "summary": string, "cliffhanger": string}]}.
 "voices" : une voix TRÈS distincte pour chaque personnage (sexe, âge, timbre, grave/aigu, rythme), ex. "elderly woman, low raspy authoritative voice, slow".
-Chaque épisode = UNE scène filmable : un lieu, deux personnages principaux face à face, un conflit concret (argent, accusation, humiliation, secret),
-et un fait précis révélé ou un geste fort à la fin. "summary" décrit cette scène en 2 phrases concrètes (qui, où, quoi, ce qui est révélé).
+FIDÉLITÉ : le pitch est la vérité. Découpe SES événements, dans SON ordre, sur les épisodes. N'invente aucune autre intrigue
+(dette, chantage, vol, vidéo, licenciement…) qui n'y est pas. Les rôles et relations des personnages ne changent JAMAIS.
+Épisode 1 = le début du pitch (la situation de départ et son premier moment fort), pas un résumé de toute l'histoire.
+Chaque épisode = UNE scène filmable : un lieu, les personnages concernés, ce qui s'y passe concrètement,
+et le moment fort de la fin. "summary" décrit cette scène en 2 phrases concrètes (qui, où, quoi).
 Chaque épisode (sauf le dernier) finit sur un suspense fort et précis. Le dernier épisode finit sur une chute drôle ou choquante (pas "Fin").
 Les épisodes s'enchaînent : chacun reprend exactement là où le précédent s'est arrêté.`,
     `Pays : ${country.name} (${country.setting}).
@@ -120,6 +123,8 @@ export async function buildScript(input: {
   styleId: string;
   cast: Character[];
   seconds: number;
+  /** Pitch de la série : l'épisode doit le respecter */
+  pitch?: string;
 }): Promise<Script> {
   const sceneCount = Math.max(1, Math.round(input.seconds / config.clipSeconds));
   const ep = input.plan.episodes.find((e) => e.n === input.episode) ?? input.plan.episodes[0];
@@ -162,13 +167,16 @@ export async function buildScript(input: {
   Les autres personnages du plan écoutent en silence (bouche fermée) et réagissent par le visage.
   Les plans alternent les personnages qui parlent, comme un champ/contrechamp : A, puis B, puis A…
 - Chaque réplique fait ${wordsMin} à ${wordsMax} mots : une phrase complète, naturelle, qui se dit calmement en ~${perShot.toFixed(0)} s. Aucun plan muet.
-- Plan 1 : en une phrase, on comprend QUI accuse/menace QUI et POURQUOI (l'enjeu concret, avec un chiffre ou un objet précis).
-- Chaque réplique répond directement à la précédente (question → réponse, accusation → défense, menace → riposte).
-- ARC ÉMOTIONNEL OBLIGATOIRE : le spectateur doit d'abord être RÉVOLTÉ (l'injustice empire à chaque plan, le méchant va trop loin :
-  insulte, humiliation devant témoins, menace concrète), puis SOULAGÉ/SATISFAIT au retournement. Pas de retournement avant le dernier plan.
-- L'avant-dernier plan est le pire moment pour le héros (le méchant se croit vainqueur, réplique la plus cruelle).
-- Le dernier plan contient le RETOURNEMENT, dit clairement en une phrase COURTE et percutante (8 mots max), qui fait mal au méchant.
-  "action" du dernier plan : la réaction physique du perdant (bouche ouverte, objet qui tombe, recul). Rien de vague (« tu vas voir… »).
+- FIDÉLITÉ ABSOLUE À L'HISTOIRE : l'épisode montre EXACTEMENT les événements de « Ce qui doit se passer », dans cet ordre.
+  N'invente AUCUNE autre intrigue (pas de dette, de chantage, de vidéo, de vol, de licenciement… s'ils ne sont pas dans l'histoire).
+- RÔLES IMMUABLES : chaque personnage garde le rôle indiqué dans la liste (un ami reste un ami, un patron reste un patron).
+  Le personnage qui s'oppose au héros est celui que l'histoire désigne, jamais un autre.
+- Plan 1 : on comprend tout de suite la situation de CET épisode (qui, où, ce qui se passe), avec une image forte.
+- Chaque réplique répond directement à la précédente ou à ce qu'on vient de voir. Aucune information qui tombe du ciel.
+- ARC : la tension monte jusqu'au dernier plan, qui contient le moment fort prévu par l'histoire (exploit, révélation, retournement
+  ou cliffhanger), dit ou montré clairement, avec la réaction visible des autres. Adapte l'émotion au type d'histoire :
+  injustice → révolte puis satisfaction ; pouvoir caché/exploit → incrédulité puis « waouh » ; drame familial → choc ; comédie → chute drôle.
+  Phrase finale COURTE et percutante (8 mots max). Rien de vague (« tu vas voir… »).
 - Interdits : phrases télégraphiques, énumérations, informations qui tombent du ciel, « Fin », narration, didascalies dans les répliques.
 - Pensée intérieure possible : speaker = "Prénom (pensée)" (au plus une par épisode).
 - "characters" et "speaker" : EXACTEMENT les noms de la liste fournie.
@@ -176,7 +184,8 @@ export async function buildScript(input: {
 - "mood" parmi : suspense, drame, emotion, action, comedie, triomphe.
 Réponds UNIQUEMENT en JSON : {"title": string, "logline": string, "mood": string, "scenes": [{"characters": string[], "setting": string, "action": string, "camera": string, "lines": [{"speaker": string, "text": string}]}]}`;
 
-  const brief = `Épisode ${ep.n}/${input.plan.episodes.length} : ${ep.title}
+  const brief = `HISTOIRE DE LA SÉRIE (à respecter) : ${input.pitch ?? input.plan.title}
+Épisode ${ep.n}/${input.plan.episodes.length} : ${ep.title}
 Ce qui doit se passer : ${ep.summary}
 Fin de l'épisode : ${ep.cliffhanger}
 Personnages disponibles :
@@ -185,9 +194,10 @@ ${castText(input.cast)}`;
   const draft = await chatJSON<Script>(
     `Tu es le meilleur scénariste de mini-séries TikTok (personnages-fruits 3D, style ${style.prompt}).
 Tu écris un épisode de ${input.seconds} secondes que n'importe qui comprend du premier coup et regarde jusqu'au bout.
-Méthode : 1) choisis UN conflit simple et concret entre deux personnages ; 2) écris la scène comme un vrai dialogue de film,
-naturel, tendu, avec des répliques qui s'enchaînent ; 3) découpe-la en plans.
+Méthode : 1) relis l'histoire et les rôles : tu racontes CETTE histoire, rien d'autre ; 2) écris la scène comme un vrai dialogue de film,
+naturel, avec des répliques qui s'enchaînent ; 3) découpe-la en plans.
 ${VIRAL_FORMULA}
+(Ces ressorts servent à rendre l'histoire prévue plus forte : ils ne remplacent jamais l'histoire ni les rôles.)
 ${rules}
 ${GOLD_EXAMPLE}`,
     brief,
@@ -200,7 +210,9 @@ ${GOLD_EXAMPLE}`,
     const review = await chatJSON<Script & { score?: number; problems?: string[] }>(
       `Tu es script doctor exigeant. On te donne un épisode TikTok de ${input.seconds} s en JSON.
 Lis-le comme un spectateur qui ne connaît RIEN de l'histoire et n'a que les images et les répliques.
-Note sur 10 (champ "score") selon : clarté de la situation dès le plan 1, révolte puis satisfaction ressenties, logique réplique après réplique,
+HISTOIRE PRÉVUE (référence) : ${brief}
+Note sur 10 (champ "score") selon : FIDÉLITÉ à l'histoire prévue et aux rôles (note max 4 si une intrigue est inventée ou un rôle
+inversé — dans ce cas réécris pour coller à l'histoire), clarté de la situation dès le plan 1, émotion adaptée, logique réplique après réplique,
 tension qui monte, retournement net et compréhensible à la fin, dialogue naturel, absence de blancs (${wordsMin}-${wordsMax} mots par plan).
 Vérifie aussi : exactement UNE réplique par plan, d'un seul personnage, les orateurs alternent. Liste les défauts dans "problems". Puis renvoie la version CORRIGÉE de l'épisode (même format, ${sceneCount} plans, mêmes noms) :
 si la note est < 8, réécris franchement le dialogue pour atteindre 9/10 en gardant l'idée.

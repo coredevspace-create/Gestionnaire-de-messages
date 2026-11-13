@@ -376,6 +376,7 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
       styleId: ctx.series.style,
       cast: ctx.cast,
       seconds: ctx.video.seconds,
+      pitch: ctx.series.pitch,
     }));
     if (!ctx.script.scenes?.length) throw new Error("Scénario vide");
     await saveScript(ctx, "Scénario prêt");
