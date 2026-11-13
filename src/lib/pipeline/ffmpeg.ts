@@ -98,3 +98,68 @@ export function toSrtTime(s: number): string {
   const p = (n: number, l = 2) => String(n).padStart(l, "0");
   return `${p(h)}:${p(m)}:${p(sec)},${p(r, 3)}`;
 }
+
+/**
+ * Mixage audio final :
+ * - voix des personnages (piste d'origine)
+ * - musique de fond en boucle, qui baisse automatiquement quand quelqu'un parle (sidechain),
+ *   fondu d'entrée et de sortie
+ * - petit « whoosh » à chaque changement de plan
+ */
+export async function mixAudio(opts: {
+  input: string;
+  output: string;
+  duration: number;
+  music?: string | null;
+  cuts?: number[];
+  musicVolume?: number;
+}) {
+  const T = opts.duration;
+  const cuts = (opts.cuts ?? []).filter((c) => c > 0.5 && c < T - 0.3);
+  const args = ["-i", opts.input];
+  const parts: string[] = [];
+  const mixInputs: string[] = [];
+  let idx = 1;
+
+  if (opts.music) {
+    args.push("-stream_loop", "-1", "-i", opts.music);
+    parts.push(`[0:a]asplit=2[voice][sc]`);
+    parts.push(
+      `[${idx}:a]aformat=sample_rates=44100:channel_layouts=stereo,volume=${opts.musicVolume ?? 0.22},` +
+        `afade=t=in:d=1,afade=t=out:st=${Math.max(0, T - 2).toFixed(2)}:d=2,atrim=0:${T.toFixed(2)}[mraw]`,
+    );
+    parts.push(`[mraw][sc]sidechaincompress=threshold=0.02:ratio=8:attack=15:release=350[mus]`);
+    mixInputs.push("[voice]", "[mus]");
+    idx++;
+  } else {
+    parts.push(`[0:a]anull[voice]`);
+    mixInputs.push("[voice]");
+  }
+
+  if (cuts.length) {
+    args.push("-f", "lavfi", "-i", "anoisesrc=d=0.6:c=pink:a=0.6:r=44100");
+    parts.push(
+      `[${idx}:a]highpass=f=500,lowpass=f=3500,afade=t=in:d=0.25,afade=t=out:st=0.25:d=0.35,volume=0.18,` +
+        `aformat=channel_layouts=stereo,asplit=${cuts.length}${cuts.map((_, i) => `[w${i}]`).join("")}`,
+    );
+    cuts.forEach((c, i) => {
+      const ms = Math.max(0, Math.round((c - 0.3) * 1000));
+      parts.push(`[w${i}]adelay=${ms}|${ms}[wd${i}]`);
+      mixInputs.push(`[wd${i}]`);
+    });
+    idx++;
+  }
+
+  if (mixInputs.length === 1) {
+    fs.copyFileSync(opts.input, opts.output);
+    return;
+  }
+  parts.push(`${mixInputs.join("")}amix=inputs=${mixInputs.length}:duration=first:normalize=0,alimiter=limit=0.95[aout]`);
+  args.push(
+    "-filter_complex", parts.join(";"),
+    "-map", "0:v", "-map", "[aout]",
+    "-c:v", "copy", "-c:a", "aac", "-b:a", "160k",
+    "-t", T.toFixed(2), "-movflags", "+faststart", opts.output,
+  );
+  await ffmpeg(args);
+}

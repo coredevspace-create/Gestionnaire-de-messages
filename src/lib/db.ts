@@ -75,6 +75,14 @@ CREATE TABLE IF NOT EXISTS videos (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS metrics_json TEXT;
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS music BOOLEAN NOT NULL DEFAULT true;
+CREATE TABLE IF NOT EXISTS music_tracks (
+  id SERIAL PRIMARY KEY,
+  mood TEXT NOT NULL,
+  title TEXT NOT NULL,
+  path TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS credit_ledger (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -166,6 +174,7 @@ export type Video = {
   error: string | null;
   mock: boolean;
   metrics_json: string | null;
+  music: boolean;
   created_at: Date;
   updated_at: Date;
 };

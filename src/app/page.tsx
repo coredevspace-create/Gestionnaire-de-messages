@@ -63,6 +63,10 @@ export default async function HomePage() {
             </select>
           </label>
           <label className="row">
+            <input type="checkbox" name="music" defaultChecked /> Musique de fond (décoche si tu ajoutes un son tendance
+            directement sur TikTok)
+          </label>
+          <label className="row">
             Pays
             <select name="country" defaultValue={user.country}>
               {COUNTRIES.map((c) => (

@@ -6,6 +6,6 @@ const nextConfig = {
   outputFileTracingIncludes: {
     "/**": ["./node_modules/ffmpeg-static/ffmpeg", "./fonts/**"],
   },
-  experimental: { serverActions: { bodySizeLimit: "2mb" } },
+  experimental: { serverActions: { bodySizeLimit: "4.5mb" } },
 };
 export default nextConfig;

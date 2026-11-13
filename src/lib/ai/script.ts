@@ -34,7 +34,12 @@ export type Scene = {
   videoRequestId?: string;
   clipPath?: string;
 };
-export type Script = { title: string; scenes: Scene[] };
+export type Script = {
+  title: string;
+  /** Ambiance musicale : suspense | drame | emotion | action | comedie | triomphe */
+  mood?: string;
+  scenes: Scene[];
+};
 
 function castText(cast: Character[]) {
   return cast
@@ -91,6 +96,7 @@ export async function buildScript(input: {
   if (isMock()) {
     return {
       title: ep.title,
+      mood: "suspense",
       scenes: Array.from({ length: sceneCount }, (_, i) => {
         const a = input.cast[i % input.cast.length];
         const b = input.cast[(i + 1) % input.cast.length];
@@ -130,7 +136,8 @@ ${VIRAL_FORMULA}
 - Le premier plan accroche en 2 secondes : une phrase choc ou une question qui donne envie de connaître la suite.
 - Le dernier plan se termine sur une réplique choc qui illustre ce moment (sans le recopier) : ${ep.cliffhanger}
 - Chaque plan = UNE seule action continue dans UN seul lieu (pas de montage, pas de split-screen).
-Réponds UNIQUEMENT en JSON : {"title": string, "scenes": [{"characters": string[], "setting": string, "action": string, "camera": string, "lines": [{"speaker": string, "text": string}]}]}`,
+- "mood" = l'ambiance musicale dominante, parmi : suspense, drame, emotion, action, comedie, triomphe.
+Réponds UNIQUEMENT en JSON : {"title": string, "mood": string, "scenes": [{"characters": string[], "setting": string, "action": string, "camera": string, "lines": [{"speaker": string, "text": string}]}]}`,
     `Pays : ${country.name} — décor : ${country.setting}
 Épisode ${ep.n} : ${ep.title}
 Résumé : ${ep.summary}

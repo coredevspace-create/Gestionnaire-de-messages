@@ -10,7 +10,8 @@ import { checkVideo, submitVideo } from "../ai/xai";
 import { mockClip, mockImage } from "../ai/mock";
 import { buildPlan, buildScript, type Scene, type Script, type SeriesPlan } from "../ai/script";
 import { getMedia, mediaExists, publicMediaUrl, putMedia } from "../storage";
-import { burnSubtitles, concatClips, normalizeClip } from "./ffmpeg";
+import { burnSubtitles, concatClips, mixAudio, normalizeClip } from "./ffmpeg";
+import { pickTrack } from "../music";
 import { buildAss, type TimedLine } from "./subtitles";
 import { emptyMetrics, parseMetrics, timed, withMetrics, type Metrics } from "../metrics";
 
@@ -227,8 +228,28 @@ async function assemble(ctx: Ctx): Promise<string> {
       }),
     );
 
+    const subbed = path.join(dir, "subbed.mp4");
+    await burnSubtitles(joined, assPath, subbed);
+
+    // Musique de fond (si activée et si la bibliothèque en contient) + whoosh entre les plans.
+    let musicFile: string | null = null;
+    if (ctx.video.music !== false) {
+      const track = await pickTrack(ctx.script!.mood);
+      if (track) {
+        musicFile = path.join(dir, `music${path.extname(track.path) || ".mp3"}`);
+        fs.writeFileSync(musicFile, await getMedia(track.path));
+      }
+    }
+    const cuts: number[] = [];
+    secs.reduce((acc, d) => (cuts.push(acc + d), acc + d), 0);
+    cuts.pop();
     const final = path.join(dir, "final.mp4");
-    await burnSubtitles(joined, assPath, final);
+    try {
+      await mixAudio({ input: subbed, output: final, duration: total, music: musicFile, cuts });
+    } catch (e) {
+      console.error(`[video ${ctx.video.id}] mixage audio ignoré :`, e);
+      fs.copyFileSync(subbed, final);
+    }
     return putMedia(`videos/${ctx.video.id}/final.mp4`, fs.readFileSync(final));
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

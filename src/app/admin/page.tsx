@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { isAdmin, requireUser } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import Link from "next/link";
+import { MusicAdmin } from "@/components/MusicAdmin";
 import { costOf, parseMetrics } from "@/lib/metrics";
 import { fmtDuration, wallTime } from "@/components/MetricsView";
 import { adminGrantCredits } from "../actions";
@@ -54,6 +55,7 @@ export default async function AdminPage() {
         </table>
       </section>
       <p className="muted">Vidéos : {stats.map((s) => `${s.status} ${s.n}`).join(" · ") || "aucune"}</p>
+      <MusicAdmin />
       <form action={adminGrantCredits} className="row card">
         <input name="email" type="email" placeholder="email" required />
         <input name="amount" type="number" placeholder="crédits (+/-)" required />
