@@ -261,6 +261,7 @@ export function Studio(p: Props) {
             <i aria-hidden="true" />
           </label>
 
+          <div className="ed-foot">
           <div className="ed-sum">
             <div><span>{episodes > 1 ? "Partie 1" : "Coût"}</span><b>{fmt.credits} crédits</b></div>
             {episodes > 1 && <div><span>Série complète</span><b>{episodes * fmt.credits} crédits</b></div>}
@@ -274,6 +275,7 @@ export function Studio(p: Props) {
             </a>
           )}
           {state?.error && <p className="error">{state.error}</p>}
+          </div>
         </div>
       </aside>
     </form>
