@@ -98,7 +98,7 @@ ${castText(input.cast)}`,
 }
 
 /** Débit de parole visé (mots par seconde) : sert à remplir chaque plan sans blanc. */
-const WORDS_PER_SECOND = 2.0;
+const WORDS_PER_SECOND = 1.8;
 
 /** Exemple de référence (qualité attendue) montré au scénariste. */
 const GOLD_EXAMPLE = `EXEMPLE DE RÉFÉRENCE (20 s, 4 plans, UNE réplique par plan) — imite ce niveau de clarté et de tension, pas son histoire :
@@ -164,7 +164,11 @@ export async function buildScript(input: {
 - Chaque réplique fait ${wordsMin} à ${wordsMax} mots : une phrase complète, naturelle, qui se dit calmement en ~${perShot.toFixed(0)} s. Aucun plan muet.
 - Plan 1 : en une phrase, on comprend QUI accuse/menace QUI et POURQUOI (l'enjeu concret, avec un chiffre ou un objet précis).
 - Chaque réplique répond directement à la précédente (question → réponse, accusation → défense, menace → riposte).
-- Le dernier plan contient le RETOURNEMENT ou la RÉVÉLATION, dit clairement, avec la réaction du perdant. Rien de vague (« tu vas voir… »).
+- ARC ÉMOTIONNEL OBLIGATOIRE : le spectateur doit d'abord être RÉVOLTÉ (l'injustice empire à chaque plan, le méchant va trop loin :
+  insulte, humiliation devant témoins, menace concrète), puis SOULAGÉ/SATISFAIT au retournement. Pas de retournement avant le dernier plan.
+- L'avant-dernier plan est le pire moment pour le héros (le méchant se croit vainqueur, réplique la plus cruelle).
+- Le dernier plan contient le RETOURNEMENT, dit clairement en une phrase COURTE et percutante (8 mots max), qui fait mal au méchant.
+  "action" du dernier plan : la réaction physique du perdant (bouche ouverte, objet qui tombe, recul). Rien de vague (« tu vas voir… »).
 - Interdits : phrases télégraphiques, énumérations, informations qui tombent du ciel, « Fin », narration, didascalies dans les répliques.
 - Pensée intérieure possible : speaker = "Prénom (pensée)" (au plus une par épisode).
 - "characters" et "speaker" : EXACTEMENT les noms de la liste fournie.
@@ -196,7 +200,7 @@ ${GOLD_EXAMPLE}`,
     const review = await chatJSON<Script & { score?: number; problems?: string[] }>(
       `Tu es script doctor exigeant. On te donne un épisode TikTok de ${input.seconds} s en JSON.
 Lis-le comme un spectateur qui ne connaît RIEN de l'histoire et n'a que les images et les répliques.
-Note sur 10 (champ "score") selon : clarté de la situation dès le plan 1, logique réplique après réplique,
+Note sur 10 (champ "score") selon : clarté de la situation dès le plan 1, révolte puis satisfaction ressenties, logique réplique après réplique,
 tension qui monte, retournement net et compréhensible à la fin, dialogue naturel, absence de blancs (${wordsMin}-${wordsMax} mots par plan).
 Vérifie aussi : exactement UNE réplique par plan, d'un seul personnage, les orateurs alternent. Liste les défauts dans "problems". Puis renvoie la version CORRIGÉE de l'épisode (même format, ${sceneCount} plans, mêmes noms) :
 si la note est < 8, réécris franchement le dialogue pour atteindre 9/10 en gardant l'idée.

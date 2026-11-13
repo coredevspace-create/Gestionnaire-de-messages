@@ -141,7 +141,7 @@ function videoPrompt(scene: Scene, ctx: Ctx) {
     ? "Nobody speaks."
     : thought
       ? `${speaker}'s inner voice-over (mouth closed) says, slowly and clearly: "${line.text}"`
-      : `ONLY ${speaker} speaks, lips moving, slowly and clearly with natural pauses: "${line.text}"`;
+      : `ONLY ${speaker} speaks, lips moving. Calm, unhurried delivery: half a second of silence, then the line at a slow conversational pace with natural pauses and strong emotion: "${line.text}"`;
   return `One continuous single shot, no cuts. ${scene.action}. Camera: ${scene.camera}.
 ${speech}
 ${speaker ? `Voice of ${speaker}: ${voiceFor(speaker, ctx)}, speaking ${lang}.` : ""}
@@ -252,7 +252,10 @@ async function assemble(ctx: Ctx): Promise<string> {
     const normalized: string[] = [];
     for (let i = 0; i < scenes.length; i++) {
       const out = path.join(dir, `norm-${i}.mp4`);
-      await normalizeClip(raws[i], out, secs[i], cutStart[i]);
+      // Dernier plan : 1 s d'arrêt sur image après la chute, pour qu'elle marque.
+      const hold = i === scenes.length - 1 ? 1 : 0;
+      if (hold) secs[i] += hold;
+      await normalizeClip(raws[i], out, secs[i], cutStart[i], hold);
       normalized.push(out);
     }
     const joined = path.join(dir, "joined.mp4");

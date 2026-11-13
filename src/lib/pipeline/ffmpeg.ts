@@ -50,10 +50,12 @@ export function subtitlesFilter(file: string, style: string) {
 
 
 /** Normalise un clip : 720x1280, 30 fps, piste audio garantie, durée fixe. */
-export async function normalizeClip(input: string, output: string, seconds: number, start = 0) {
+/** `hold` : secondes d'arrêt sur image ajoutées à la fin (pour laisser « atterrir » la chute). */
+export async function normalizeClip(input: string, output: string, seconds: number, start = 0, hold = 0) {
   const audio = await hasAudio(input);
   const vf =
-    "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,setsar=1,fps=30,format=yuv420p";
+    "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,setsar=1,fps=30,format=yuv420p" +
+    (hold > 0 ? `,trim=duration=${(seconds - hold).toFixed(2)},tpad=stop_mode=clone:stop_duration=${hold.toFixed(2)}` : "");
   const seek = start > 0 ? ["-ss", start.toFixed(2)] : [];
   const args = audio ? [...seek, "-i", input] : [...seek, "-i", input, "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo"];
   args.push(
