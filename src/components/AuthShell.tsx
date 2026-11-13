@@ -38,17 +38,25 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
           <span>FruitStory</span>
         </Link>
         <div className="auth-pitch">
-          <span className="auth-kicker">Séries TikTok · Fruits 3D</span>
           <h2>
-            Tu choisis l&apos;histoire.
+            Ta prochaine série,
             <br />
-            <span className="serif grad">On fait le reste.</span>
+            <span className="serif grad">déjà en tournage.</span>
           </h2>
-          <p>Scénario, personnages qui parlent, sous-titres et musique. Ta vidéo est prête en quelques minutes.</p>
-          <div className="auth-stats">
-            <div><b>29</b><span>séries prêtes</span></div>
-            <div><b>Voix FR</b><span>avec l&apos;accent</span></div>
-            <div><b>Même visage</b><span>à chaque épisode</span></div>
+          <div className="auth-render">
+            <div className="auth-render-head">
+              <span className="dot" />
+              <b>La loi de la cantine · Partie 2</b>
+              <span className="pct">86%</span>
+            </div>
+            <div className="auth-render-bar"><div /></div>
+            <ul>
+              <li className="ok"><Icon name="check" size={13} /> Scénario écrit</li>
+              <li className="ok"><Icon name="check" size={13} /> Personnages en place</li>
+              <li className="ok"><Icon name="check" size={13} /> Voix synchronisées</li>
+              <li className="now"><span className="spin" /> Montage et sous-titres…</li>
+            </ul>
+            <p>« Repose mon assiette avant que je ne m&apos;énerve vraiment. »</p>
           </div>
         </div>
       </aside>
