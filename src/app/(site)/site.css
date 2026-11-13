@@ -235,3 +235,18 @@
 }
 /* Les mots en italique dégradé l'emportent sur la couleur de base des titres */
 .lp-hero h1 .serif.grad, .lp-h2 .serif.grad { color: transparent; background: var(--grad); -webkit-background-clip: text; background-clip: text; }
+
+/* Exemples : titre en bas de la vidéo, vidéo plein cadre */
+.lp-clip .frame video, .lp-clip .frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.lp-clip .frame .meta {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; justify-content: space-between; align-items: end; gap: 8px;
+  padding: 48px 14px 14px; background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent); font-size: 14px;
+}
+.lp-clip .frame .meta b { color: #fff; line-height: 1.2; }
+.lp-clip .frame .meta span { color: rgba(255, 255, 255, 0.7); white-space: nowrap; font-size: 12.5px; padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
+.lp-clip .frame.text { justify-content: center; padding-bottom: 80px; }
+.lp-clip .frame.text .meta { background: none; }
+.lp-world .lp-places span { background: rgba(9, 9, 11, 0.55); backdrop-filter: blur(6px); }
+@media (max-width: 640px) {
+  .lp-clip .frame .meta { flex-direction: column; align-items: flex-start; padding: 36px 10px 10px; font-size: 12.5px; }
+}

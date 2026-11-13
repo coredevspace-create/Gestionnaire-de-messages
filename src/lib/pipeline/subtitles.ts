@@ -113,30 +113,37 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Sub,${SUB_FONT},84,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,0,0,0,0,100,100,0,0,1,8,4,2,40,40,250,1
+Style: Sub,${SUB_FONT},54,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,3.2,0,2,60,60,330,1
 Style: Title,${SUB_FONT},54,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,0,0,0,0,100,100,0,0,3,14,0,8,40,40,150,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 `;
   const events: string[] = [];
+  // Style « karaoké » : 2-3 mots blancs à l'écran, le mot prononcé passe en jaune.
+  const YELLOW = "&H0033E6FF&";
   for (const l of lines) {
     const parts = chunk(escapeAss(l.text).toLocaleUpperCase("fr-FR"));
     if (!parts.length) continue;
-    // Durée de chaque morceau proportionnelle à son nombre de caractères.
     const total = parts.reduce((a, p) => a + p.length, 0);
     const dur = Math.max(0.3, l.end - l.start);
-    const color = SPEAKER_COLORS[speakers.indexOf(who(l.speaker)) % SPEAKER_COLORS.length];
     const thought = who(l.speaker) !== l.speaker.trim();
     let t = l.start;
     for (const p of parts) {
       const d = (dur * p.length) / total;
-      // Petit effet « pop » à l'apparition (110% -> 100%).
-      const text = `{\\c${color}${thought ? "\\i1" : ""}\\fscx110\\fscy110\\t(0,120,\\fscx100\\fscy100)}${p}`;
-      events.push(`Dialogue: 0,${assTime(t)},${assTime(t + d)},Sub,,0,0,0,,${text}`);
+      const words = p.split(" ");
+      const chars = words.reduce((a, w) => a + w.length + 1, 0);
+      let wt = t;
+      words.forEach((_, wi) => {
+        const wd = (d * (words[wi].length + 1)) / chars;
+        const text = words.map((w, k) => (k === wi ? `{\\c${YELLOW}}${w}{\\c&HFFFFFF&}` : w)).join(" ");
+        events.push(`Dialogue: 0,${assTime(wt)},${assTime(wt + wd)},Sub,,0,0,0,,${thought ? "{\\i1}" : ""}${text}`);
+        wt += wd;
+      });
       t += d;
     }
   }
+  void speakers;
   if (overlay?.title) {
     // Bandeau titre (fond noir) les 3 premières secondes.
     events.push(`Dialogue: 1,${assTime(0)},${assTime(Math.min(3, overlay.total))},Title,,0,0,0,,{\\fad(150,300)}${escapeAss(overlay.title).toLocaleUpperCase("fr-FR")}`);

@@ -65,29 +65,25 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
     <div key={key} className="lp-clip">
       <div className="frame">
         <video src={src} poster={poster} muted loop playsInline autoPlay preload="metadata" />
+        <div className="meta"><b>{title}</b><span>Partie {part}</span></div>
       </div>
-      <div className="meta"><b>{title}</b><span>Partie {part}</span></div>
     </div>
   );
   const reel = [
     ...videos.map((v) => clip(`v${v.id}`, v.src, v.poster ?? undefined, v.title, v.episode)),
     ...LOCAL_REELS.map((r) => clip(r.src, r.src, r.poster, r.title, r.part)),
     <div key="q0" className="lp-clip" style={{ ["--glow" as string]: "rgba(255,106,43,.7)" }}>
-      <div className="frame text" style={{ ["--bgq" as string]: QUOTE_BG[0] }}><span className="who">{quotes[0].title}</span><blockquote>{quotes[0].hook}</blockquote><span className="who">Partie 1</span></div>
-      <div className="meta"><b>{quotes[0].title}</b><span>Partie 1</span></div>
+      <div className="frame text" style={{ ["--bgq" as string]: QUOTE_BG[0] }}><blockquote>{quotes[0].hook}</blockquote><div className="meta"><b>{quotes[0].title}</b><span>Partie 1</span></div></div>
     </div>,
     <div key="q1" className="lp-clip" style={{ ["--glow" as string]: "rgba(198,77,255,.7)" }}>
-      <div className="frame text" style={{ ["--bgq" as string]: QUOTE_BG[1] }}><span className="who">{quotes[1].title}</span><blockquote>{quotes[1].hook}</blockquote><span className="who">Partie 1</span></div>
-      <div className="meta"><b>{quotes[1].title}</b><span>Partie 1</span></div>
+      <div className="frame text" style={{ ["--bgq" as string]: QUOTE_BG[1] }}><blockquote>{quotes[1].hook}</blockquote><div className="meta"><b>{quotes[1].title}</b><span>Partie 1</span></div></div>
     </div>,
     <div key="i1" className="lp-clip">
-      <div className="frame"><img src={FALLBACK_IMAGES[1].src} alt="" /></div>
-      <div className="meta"><b>{FALLBACK_IMAGES[1].title}</b><span>Partie 2</span></div>
+      <div className="frame"><img src={FALLBACK_IMAGES[1].src} alt="" /><div className="meta"><b>{FALLBACK_IMAGES[1].title}</b><span>Partie 2</span></div></div>
     </div>,
     ...EXTRA_QUOTES.map((q, i) => (
       <div key={`x${i}`} className="lp-clip" style={{ ["--glow" as string]: "rgba(77,184,255,.6)" }}>
-        <div className="frame text" style={{ ["--bgq" as string]: QUOTE_BG[(i % 2) + 2] }}><span className="who">{q.title}</span><blockquote>{q.hook}</blockquote><span className="who">Partie 1</span></div>
-        <div className="meta"><b>{q.title}</b><span>Partie 1</span></div>
+        <div className="frame text" style={{ ["--bgq" as string]: QUOTE_BG[(i % 2) + 2] }}><blockquote>{q.hook}</blockquote><div className="meta"><b>{q.title}</b><span>Partie 1</span></div></div>
       </div>
     )),
   ].slice(0, 8);
@@ -205,12 +201,13 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
           <p className="lp-lead">{total} séries prêtes à lancer, dans deux univers.</p>
           <div className="lp-worlds" data-reveal="1">
             <div className="lp-world">
-              <img src="/visuals/foule.jpg" alt="" />
+              <img src="/visuals/afrique.jpg" alt="Personnages-fruits sur un marché africain" />
               <div className="lp-flags">{africa.map((c) => <Flag key={c.id} id={c.id} size={16} />)}</div>
               <h3>Afrique</h3>
               <p>Dix pays, leurs décors, leurs prénoms et leur façon de parler. Les histoires de famille que ton public vit.</p>
             </div>
-            <div className="lp-world plain">
+            <div className="lp-world">
+              <img src="/visuals/monde.jpg" alt="Personnages-fruits dans un bureau la nuit" />
               <div className="lp-places">
                 {["Bureaux", "Prison", "Arène", "Manoir", "Lycée", "Cuisine"].map((p) => <span key={p}>{p}</span>)}
               </div>

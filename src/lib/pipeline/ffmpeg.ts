@@ -53,7 +53,7 @@ export function subtitlesFilter(file: string, style: string) {
 export async function normalizeClip(input: string, output: string, seconds: number) {
   const audio = await hasAudio(input);
   const vf =
-    "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p";
+    "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,setsar=1,fps=30,format=yuv420p";
   const args = audio ? ["-i", input] : ["-i", input, "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo"];
   args.push(
     "-t", String(seconds),
