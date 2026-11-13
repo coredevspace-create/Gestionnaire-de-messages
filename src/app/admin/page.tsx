@@ -3,6 +3,7 @@ import { isAdmin, requireUser } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import Link from "next/link";
 import { MusicAdmin } from "@/components/MusicAdmin";
+import { PregenAdmin } from "@/components/PregenAdmin";
 import { costOf, parseMetrics } from "@/lib/metrics";
 import { fmtDuration, wallTime } from "@/components/MetricsView";
 import { adminGrantCredits } from "../actions";
@@ -55,6 +56,7 @@ export default async function AdminPage() {
         </table>
       </section>
       <p className="muted">Vidéos : {stats.map((s) => `${s.status} ${s.n}`).join(" · ") || "aucune"}</p>
+      <PregenAdmin />
       <MusicAdmin />
       <form action={adminGrantCredits} className="row card">
         <input name="email" type="email" placeholder="email" required />

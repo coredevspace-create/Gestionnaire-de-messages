@@ -9,6 +9,8 @@ import { COUNTRIES } from "@/lib/catalog/countries";
 import { createNextEpisode, createSeriesAndFirstVideo, retryVideo, UserError } from "@/lib/service";
 import { isMood } from "@/lib/music";
 import { putMedia } from "@/lib/storage";
+import { startPregen } from "@/lib/pregen";
+import { kickPregen } from "@/lib/pipeline/kick";
 
 export type FormState = { error?: string } | undefined;
 
@@ -134,5 +136,29 @@ export async function adminDeleteMusic(fd: FormData) {
   const user = await requireUser();
   if (!isAdmin(user)) redirect("/");
   await sql("DELETE FROM music_tracks WHERE id = $1", [Number(str(fd, "id"))]);
+  revalidatePath("/admin");
+}
+
+/** Lance la création des portraits à l'avance, avec un plafond de dépense (admin). */
+export async function adminStartPregen(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (!isAdmin(user)) redirect("/");
+  const budget = Number(str(fd, "budget").replace(",", "."));
+  const quality = ["low", "medium", "high"].includes(str(fd, "quality")) ? str(fd, "quality") : "medium";
+  if (!(budget > 0 && budget <= 50)) return { error: "Budget entre 0,10 $ et 50 $." };
+  const running = await one("SELECT id FROM bg_jobs WHERE kind = 'pregen' AND status = 'running'");
+  if (running) return { error: "Une création est déjà en cours." };
+  const id = await startPregen(budget, quality);
+  await kickPregen(id);
+  revalidatePath("/admin");
+  return undefined;
+}
+
+export async function adminStopPregen(fd: FormData) {
+  const user = await requireUser();
+  if (!isAdmin(user)) redirect("/");
+  await sql("UPDATE bg_jobs SET status = 'stopped', error = 'Arrêté manuellement' WHERE id = $1 AND status = 'running'", [
+    Number(str(fd, "id")),
+  ]);
   revalidatePath("/admin");
 }

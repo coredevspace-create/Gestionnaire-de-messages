@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { headers } from "next/headers";
 import { work } from "./runner";
+import { runPregen } from "../pregen";
 
 /**
  * Enchaînement des étapes sans service externe :
@@ -18,14 +19,15 @@ export async function baseUrl(): Promise<string> {
   return `${proto}://${host}`;
 }
 
-async function callTick(origin: string, id: number) {
+async function callTick(origin: string, id: number, kind: "videos" | "pregen" = "videos") {
   const hdrs: Record<string, string> = {};
   // Permet l'auto-appel quand la « Deployment Protection » de Vercel est active.
   if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
     hdrs["x-vercel-protection-bypass"] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
   }
   try {
-    await fetch(`${origin}/api/videos/${id}/tick`, { method: "POST", headers: hdrs });
+    const url = kind === "videos" ? `${origin}/api/videos/${id}/tick` : `${origin}/api/admin/pregen/${id}/tick`;
+    await fetch(url, { method: "POST", headers: hdrs });
   } catch (e) {
     console.error(`[video ${id}] relance impossible`, e);
   }
@@ -37,5 +39,14 @@ export async function kickVideo(id: number) {
   after(async () => {
     const r = await work(id);
     if (r === "more") await callTick(origin, id);
+  });
+}
+
+/** Création des portraits à l'avance (admin), même principe d'auto-relance. */
+export async function kickPregen(id: number) {
+  const origin = await baseUrl();
+  after(async () => {
+    const r = await runPregen(id);
+    if (r === "more") await callTick(origin, id, "pregen");
   });
 }

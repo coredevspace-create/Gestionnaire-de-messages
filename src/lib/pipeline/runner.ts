@@ -39,7 +39,7 @@ type Ctx = {
 /** Version des portraits de référence : changer la valeur force leur régénération. */
 const SHEET_VERSION = "portrait-v2";
 
-function sheetIsCurrent(c: Character) {
+export function sheetIsCurrent(c: Character) {
   return !!c.sheet_path && c.sheet_path.includes(SHEET_VERSION);
 }
 
@@ -84,7 +84,7 @@ function slug(s: string) {
  * Une seule pose plein cadre (pas de planche multi-vues : sinon les images de plan
  * reproduisent la mise en page en mosaïque).
  */
-async function makeSheet(c: Character): Promise<void> {
+export async function makeSheet(c: Character, quality = process.env.OPENAI_PORTRAIT_QUALITY || "medium"): Promise<void> {
   const country = getCountry(c.country);
   const style = getStyle(c.style);
   let png: Buffer;
@@ -97,7 +97,7 @@ Standing, front three-quarter view, neutral friendly expression, whole body visi
 ONE single image of ONE character only: no grid, no panels, no multiple views, no collage, no turnaround, no text. Plain light grey studio background.
 Style: ${style.prompt}`,
       "1024x1536",
-      "high",
+      quality,
     );
   }
   const ref = await putMedia(`characters/${c.id}-${slug(c.name)}-${c.fruit}-${SHEET_VERSION}.png`, png);
