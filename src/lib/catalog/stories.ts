@@ -13,6 +13,8 @@ export type Story = {
 };
 
 export const THEMES = [
+  "Héros sous-estimé",
+  "Test et karma",
   "Polygamie et co-épouses",
   "Belle-mère et belle-famille",
   "Argent et diaspora",
@@ -23,6 +25,97 @@ export const THEMES = [
 ] as const;
 
 export const STORIES: Story[] = [
+  // ---- Formule virale : test moral, héros sous-estimé, secret, karma ----
+  {
+    id: "test-du-patron",
+    title: "Le test du patron",
+    hook: "« Il y a trop d'argent dans ma paie… Je le rends ou je nourris ma famille ? »",
+    theme: "Test et karma",
+    pitch:
+      "Le riche patron glisse exprès trop d'argent dans la paie de son employé le plus pauvre pour tester son honnêteté. L'employé vient le rendre… mais c'est la femme du patron qui ouvre la porte et garde l'argent pour elle. Le patron accuse l'employé de vol. L'employé sort son téléphone : il a tout filmé.",
+    cast: ["fils", "papa", "coepouse"],
+    countries: [],
+    tags: ["viral", "nouveau"],
+  },
+  {
+    id: "gardien-milliardaire",
+    title: "Le gardien était le propriétaire",
+    hook: "« Toi le gardien, va me garer ma voiture ! » — Il ne sait pas à qui il parle.",
+    theme: "Héros sous-estimé",
+    pitch:
+      "Un jeune cadre arrogant humilie le vieux gardien de l'immeuble devant tout le monde. Il ignore que ce gardien est le milliardaire propriétaire de l'entreprise, qui s'est déguisé pour voir comment ses employés traitent les petits.",
+    cast: ["papa", "fils", "fille"],
+    countries: [],
+    tags: ["viral", "nouveau"],
+  },
+  {
+    id: "fiance-pauvre",
+    title: "Le fiancé « pauvre »",
+    hook: "« Ma fille ne va pas épouser un vendeur de beignets ! »",
+    theme: "Mariage et dot",
+    pitch:
+      "Pour tester sa future belle-famille, un fiancé très riche se fait passer pour un pauvre vendeur de beignets. La belle-mère le méprise et lui présente un « vrai » prétendant riche… qui travaille en réalité pour le fiancé.",
+    cast: ["fils", "bellemere", "fille", "oncle"],
+    countries: [],
+    tags: ["viral", "top"],
+  },
+  {
+    id: "zemidjan-force",
+    title: "Le moto-taxi qui soulève un camion",
+    hook: "« Frère… tu viens de soulever un camion avec une main ?! »",
+    theme: "Héros sous-estimé",
+    pitch:
+      "Un moto-taxi discret soulève un camion d'une main pour sauver un enfant. Son ami le pousse à s'inscrire au grand concours de force de la ville, 50 millions à gagner. Le champion en titre se moque de lui… jusqu'à la première épreuve.",
+    cast: ["fils", "voisin", "oncle"],
+    countries: ["bj", "tg", "cm"],
+    tags: ["viral", "nouveau"],
+  },
+  {
+    id: "nouveau-du-quartier",
+    title: "Le nouveau du quartier",
+    hook: "« Ici c'est mon quartier. Le nouveau, tu baisses les yeux. »",
+    theme: "Héros sous-estimé",
+    pitch:
+      "Le caïd du quartier rackette tout le monde et s'en prend au nouveau, un garçon calme à lunettes. Les vendeuses du marché chuchotent : « S'il enlève ses lunettes, c'est fini pour lui… »",
+    cast: ["voisin", "fils", "maman", "coepouse"],
+    countries: [],
+    tags: ["viral", "nouveau"],
+  },
+  {
+    id: "mendiante-heritage",
+    title: "La mendiante du mariage",
+    hook: "« Chassez cette mendiante de mon mariage ! »",
+    theme: "Test et karma",
+    pitch:
+      "Pendant un mariage luxueux, la mariée fait chasser une vieille femme mal habillée. Au moment du discours, on découvre que c'est la grand-mère du marié, qui finance tout le mariage… et qui voulait voir le vrai visage de la mariée.",
+    cast: ["bellemere", "coepouse", "fils"],
+    countries: [],
+    tags: ["viral", "top"],
+  },
+  {
+    id: "bourse-volee",
+    title: "La bourse volée",
+    hook: "« C'est moi qui ai eu 19 au bac, pas elle ! »",
+    theme: "Trahison et jalousie",
+    pitch:
+      "La meilleure élève du pays apprend que sa bourse pour l'étranger a été donnée à la fille du directeur. Elle n'a qu'une preuve : un enregistrement… et le directeur vient de le découvrir.",
+    cast: ["fille", "papa", "coepouse"],
+    countries: [],
+    tags: ["viral", "nouveau"],
+  },
+  {
+    id: "heritier-cache",
+    title: "Le cousin du village",
+    hook: "« Il arrive du village avec un sac en plastique et il veut parler au PDG ? »",
+    theme: "Village contre ville",
+    pitch:
+      "Un cousin du village débarque dans la tour d'une grande entreprise de la capitale. Tout le monde se moque de lui à l'accueil. Il est l'unique héritier du fondateur, mort la semaine dernière.",
+    cast: ["voisin", "fille", "oncle"],
+    countries: [],
+    tags: ["viral", "nouveau"],
+  },
+
+  // ---- Drames familiaux ----
   {
     id: "funerailles-ruineuses",
     title: "Des funérailles qui ruinent",

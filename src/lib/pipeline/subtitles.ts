@@ -26,7 +26,7 @@ function escapeAss(t: string) {
 }
 
 /** Découpe une réplique en morceaux de 3-4 mots (sans couper avant une ponctuation isolée). */
-export function chunk(text: string, maxWords = 4): string[] {
+export function chunk(text: string, maxWords = 3): string[] {
   const words = text.trim().split(/\s+/).filter(Boolean);
   const out: string[] = [];
   for (let i = 0; i < words.length; i += maxWords) out.push(words.slice(i, i + maxWords).join(" "));
@@ -38,8 +38,18 @@ export function chunk(text: string, maxWords = 4): string[] {
   return out;
 }
 
-export function buildAss(lines: TimedLine[]): string {
-  const speakers = [...new Set(lines.map((l) => l.speaker))];
+export type Overlay = {
+  /** Titre affiché en haut au début (ex. « LE TEST DU PATRON · ÉPISODE 1 ») */
+  title?: string;
+  /** Texte affiché en haut à la fin (ex. « À SUIVRE… ») */
+  outro?: string;
+  /** Durée totale de la vidéo (s) */
+  total: number;
+};
+
+export function buildAss(lines: TimedLine[], overlay?: Overlay): string {
+  const who = (sp: string) => sp.replace(/\s*\(pens[ée]e\)\s*$/i, "").trim();
+  const speakers = [...new Set(lines.map((l) => who(l.speaker)))];
   const header = `[Script Info]
 ScriptType: v4.00+
 PlayResX: 720
@@ -49,27 +59,36 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Sub,${SUB_FONT},84,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,0,0,0,0,100,100,0,0,1,8,4,2,40,40,520,1
+Style: Sub,${SUB_FONT},84,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,0,0,0,0,100,100,0,0,1,8,4,2,40,40,250,1
+Style: Title,${SUB_FONT},54,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,0,0,0,0,100,100,0,0,3,14,0,8,40,40,150,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 `;
   const events: string[] = [];
   for (const l of lines) {
-    const parts = chunk(escapeAss(l.text));
+    const parts = chunk(escapeAss(l.text).toLocaleUpperCase("fr-FR"));
     if (!parts.length) continue;
     // Durée de chaque morceau proportionnelle à son nombre de caractères.
     const total = parts.reduce((a, p) => a + p.length, 0);
     const dur = Math.max(0.3, l.end - l.start);
-    const color = SPEAKER_COLORS[speakers.indexOf(l.speaker) % SPEAKER_COLORS.length];
+    const color = SPEAKER_COLORS[speakers.indexOf(who(l.speaker)) % SPEAKER_COLORS.length];
+    const thought = who(l.speaker) !== l.speaker.trim();
     let t = l.start;
     for (const p of parts) {
       const d = (dur * p.length) / total;
       // Petit effet « pop » à l'apparition (110% -> 100%).
-      const text = `{\\c${color}\\fscx110\\fscy110\\t(0,120,\\fscx100\\fscy100)}${p}`;
+      const text = `{\\c${color}${thought ? "\\i1" : ""}\\fscx110\\fscy110\\t(0,120,\\fscx100\\fscy100)}${p}`;
       events.push(`Dialogue: 0,${assTime(t)},${assTime(t + d)},Sub,,0,0,0,,${text}`);
       t += d;
     }
+  }
+  if (overlay?.title) {
+    // Bandeau titre (fond noir) les 3 premières secondes.
+    events.push(`Dialogue: 1,${assTime(0)},${assTime(Math.min(3, overlay.total))},Title,,0,0,0,,{\\fad(150,300)}${escapeAss(overlay.title).toLocaleUpperCase("fr-FR")}`);
+  }
+  if (overlay?.outro) {
+    events.push(`Dialogue: 1,${assTime(Math.max(0, overlay.total - 2.5))},${assTime(overlay.total)},Title,,0,0,0,,{\\c&H004DE1FF&\\fad(200,0)}${escapeAss(overlay.outro).toLocaleUpperCase("fr-FR")}`);
   }
   return header + events.join("\n") + "\n";
 }

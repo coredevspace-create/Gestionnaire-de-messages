@@ -120,7 +120,13 @@ Style: ${style.prompt}`;
 
 function videoPrompt(scene: Scene, ctx: Ctx) {
   const country = getCountry(ctx.series.country);
-  const dialogue = scene.lines.map((l) => `${l.speaker} says: "${l.text}"`).join(" Then ");
+  const dialogue = scene.lines
+    .map((l) =>
+      /\(pens[ée]e\)/i.test(l.speaker)
+        ? `${l.speaker.replace(/\s*\(pens[ée]e\)/i, "")} thinks in a voice-over (mouth closed, inner voice): "${l.text}"`
+        : `${l.speaker} says: "${l.text}"`,
+    )
+    .join(" Then ");
   return `One continuous single shot, no cuts. ${scene.action}. Camera: ${scene.camera}. The characters talk with lip-sync and expressive gestures. ${dialogue}. Speech in ${country.accent}. Ambient sound of ${country.setting}. No music, no subtitles, keep characters identical to the first frame.`;
 }
 
@@ -210,7 +216,16 @@ async function assemble(ctx: Ctx): Promise<string> {
       t += secs[i];
     });
     const assPath = path.join(dir, "subs.ass");
-    fs.writeFileSync(assPath, buildAss(timed));
+    const total = secs.reduce((a, b) => a + b, 0);
+    const hasNext = ctx.video.episode < ctx.series.episodes_total;
+    fs.writeFileSync(
+      assPath,
+      buildAss(timed, {
+        total,
+        title: `${ctx.series.title}${ctx.series.episodes_total > 1 ? ` · Partie ${ctx.video.episode}` : ""}`,
+        outro: hasNext ? `À suivre… Partie ${ctx.video.episode + 1}` : undefined,
+      }),
+    );
 
     const final = path.join(dir, "final.mp4");
     await burnSubtitles(joined, assPath, final);
