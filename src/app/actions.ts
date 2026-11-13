@@ -114,7 +114,7 @@ export async function adminGrantCredits(fd: FormData) {
   const amount = Math.trunc(Number(str(fd, "amount")));
   const target = await one<{ id: number }>("SELECT id FROM users WHERE email = $1", [email]);
   if (target && amount) await changeCredits(target.id, amount, `Ajout admin par ${user.email}`);
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
 
 /** Ajout d'une musique libre de droits à la bibliothèque (admin). */
@@ -130,7 +130,7 @@ export async function adminUploadMusic(_: FormState, fd: FormData): Promise<Form
   const title = str(fd, "title") || file.name.replace(/\.[^.]+$/, "");
   const ref = await putMedia(`music/${mood}/${Date.now()}.${ext}`, Buffer.from(await file.arrayBuffer()));
   await sql("INSERT INTO music_tracks (mood, title, path) VALUES ($1, $2, $3)", [mood, title.slice(0, 120), ref]);
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
   return undefined;
 }
 
@@ -138,7 +138,7 @@ export async function adminDeleteMusic(fd: FormData) {
   const user = await requireUser();
   if (!isAdmin(user)) redirect("/");
   await sql("DELETE FROM music_tracks WHERE id = $1", [Number(str(fd, "id"))]);
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
 
 /** Lance la création des portraits à l'avance, avec un plafond de dépense (admin). */
@@ -152,7 +152,7 @@ export async function adminStartPregen(_: FormState, fd: FormData): Promise<Form
   if (running) return { error: "Une création est déjà en cours." };
   const id = await startPregen(budget, quality);
   await kickPregen(id);
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
   return undefined;
 }
 
@@ -162,7 +162,7 @@ export async function adminStopPregen(fd: FormData) {
   await sql("UPDATE bg_jobs SET status = 'stopped', error = 'Arrêté manuellement' WHERE id = $1 AND status = 'running'", [
     Number(str(fd, "id")),
   ]);
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
 
 // ---------------- Paiements ----------------
@@ -205,4 +205,6 @@ export async function adminToggleShowcase(fd: FormData) {
   const id = Number(str(fd, "id"));
   await sql("UPDATE videos SET showcase = NOT showcase WHERE id = $1", [id]);
   revalidatePath(`/videos/${id}`);
+  revalidatePath("/admin", "layout");
+  revalidatePath("/");
 }

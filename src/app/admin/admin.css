@@ -1,0 +1,37 @@
+.adm { display: grid; grid-template-columns: 220px 1fr; gap: 28px; align-items: start; }
+.adm aside { position: sticky; top: 90px; display: grid; gap: 10px; }
+.adm-nav { display: grid; gap: 4px; }
+.adm-nav a { padding: 10px 12px; border-radius: 12px; color: var(--text-2); font-weight: 550; font-size: 15px; transition: 0.15s; }
+.adm-nav a:hover { background: var(--surface-2); color: var(--text); }
+.adm-nav a.on { background: var(--citrus-soft); color: var(--text); border: 1px solid rgba(255, 138, 31, 0.3); }
+.adm-main { min-width: 0; }
+.adm-main h1 { margin: 0; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.kpi { padding: 16px; border-radius: 18px; background: var(--surface); border: 1px solid var(--border); display: grid; gap: 4px; }
+.kpi span { color: var(--text-2); font-size: 13px; }
+.kpi b { font-family: var(--font-display); font-size: 30px; letter-spacing: -0.04em; line-height: 1.1; }
+.kpi small { color: var(--text-3); font-size: 12.5px; }
+.kpi.good b { color: var(--lime); }
+.kpi.bad b { color: #ff8a8a; }
+.table-wrap { overflow-x: auto; border-radius: 16px; border: 1px solid var(--border); }
+.table-wrap table { min-width: 720px; }
+.table-wrap th { background: var(--surface-2); font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-2); }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.filters a { padding: 7px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); font-size: 13.5px; color: var(--text-2); }
+.filters a.on { background: var(--text); color: #120e10; }
+.status { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); }
+.status.done { color: var(--lime); }
+.status.failed { color: #ff8a8a; }
+.status.running, .status.queued { color: #ffcf7a; }
+.vit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
+.vit { border-radius: 18px; overflow: hidden; background: var(--bg-2); border: 1.5px solid var(--border); display: grid; }
+.vit.on { border-color: var(--lime); box-shadow: 0 0 0 3px rgba(200, 245, 58, 0.15); }
+.vit video { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 0; background: #000; }
+.vit div { padding: 10px; display: grid; gap: 8px; font-size: 13.5px; }
+.vit button { width: 100%; }
+@media (max-width: 860px) {
+  .adm { grid-template-columns: 1fr; gap: 16px; }
+  .adm aside { position: static; }
+  .adm-nav { display: flex; overflow-x: auto; scrollbar-width: none; }
+  .adm-nav a { white-space: nowrap; }
+}
