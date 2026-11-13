@@ -9,9 +9,11 @@ export const config = {
   xaiKey: process.env.XAI_API_KEY || "",
   openaiTextModel: process.env.OPENAI_TEXT_MODEL || "gpt-5-mini",
   openaiImageModel: process.env.OPENAI_IMAGE_MODEL || "gpt-image-2",
-  xaiVideoModel: process.env.XAI_VIDEO_MODEL || "grok-imagine-video-1.5",
+  // Grok de base : ~40 % moins cher que la 1.5
+  xaiVideoModel: process.env.XAI_VIDEO_MODEL || "grok-imagine-video",
   xaiVideoResolution: process.env.XAI_VIDEO_RESOLUTION || "480p",
-  clipSeconds: Number(process.env.CLIP_SECONDS || 10),
+  // Plans courts = rythme plus dynamique (on ne paie que les secondes affichées)
+  clipSeconds: Number(process.env.CLIP_SECONDS || 8),
   starterCredits: Number(process.env.STARTER_CREDITS || 30),
   adminEmails: (process.env.ADMIN_EMAILS || "")
     .split(",")
@@ -38,7 +40,7 @@ export const FORMATS = {
 export type FormatId = keyof typeof FORMATS;
 
 export function defaultFormat(monetized: boolean): FormatId {
-  return monetized ? "long70" : "short30";
+  return monetized ? "long70" : "short20";
 }
 
 export const EPISODE_CHOICES = [1, 3, 5, 8] as const;

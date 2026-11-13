@@ -1,4 +1,4 @@
-import { FORMATS, isMock, type FormatId } from "./config";
+import { defaultFormat, FORMATS, isMock, type FormatId } from "./config";
 import { changeCredits, one, sql, type Series, type User } from "./db";
 import { castFor, type RoleId } from "./catalog/characters";
 import { getStory } from "./catalog/stories";
@@ -32,7 +32,7 @@ export async function createSeriesAndFirstVideo(
   if (!pitch) throw new UserError("Choisis une histoire ou écris ton idée en une phrase.");
   if (pitch.length > 500) throw new UserError("Ton idée est trop longue (500 caractères max).");
 
-  const formatId = (input.formatId && input.formatId in FORMATS ? input.formatId : user.monetized ? "long70" : "short30") as FormatId;
+  const formatId = (input.formatId && input.formatId in FORMATS ? input.formatId : defaultFormat(user.monetized)) as FormatId;
   const episodes = [1, 3, 5, 8].includes(Number(input.episodes)) ? Number(input.episodes) : 1;
   const country = input.country || user.country;
   const cast = await castFor(country, user.style, story?.cast ?? FREE_CAST);

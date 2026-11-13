@@ -42,6 +42,8 @@ export type Metrics = {
   grokSeconds: number;
   /** Planches de personnages générées pour cette vidéo (coût partagé ensuite) */
   sheets: number;
+  /** Images de plan refusées par le contrôle qualité puis regénérées */
+  rejectedImages?: number;
   startedAt?: string;
   finishedAt?: string;
 };

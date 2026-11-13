@@ -78,6 +78,56 @@ export async function chatJSON<T>(system: string, user: string): Promise<T> {
   });
 }
 
+/**
+ * Contrôle qualité d'une image avant de payer son animation (≈ 0,001 $ par image).
+ * En cas d'erreur de l'API, on laisse passer (on ne bloque jamais une vidéo pour ça).
+ */
+export async function checkSceneImage(
+  png: Buffer,
+  expected: { characters: string[]; action: string },
+): Promise<{ ok: boolean; reason: string }> {
+  try {
+    return await withModels("text", async (model) => {
+      const res = await fetch(`${BASE}/chat/completions`, {
+        method: "POST",
+        headers: headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          model,
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content:
+                'Tu contrôles la première image d\'une vidéo. Réponds en JSON {"ok": boolean, "reason": string}. ' +
+                "ok=false UNIQUEMENT si : l'image est découpée en plusieurs cases/panneaux (grille, BD, split-screen, collage), " +
+                "OU contient du texte/sous-titres incrustés, OU un personnage est gravement déformé (membres en trop, visage cassé). " +
+                "Sinon ok=true (ne sois pas exigeant sur le style).",
+            },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: `Personnages attendus : ${expected.characters.join(", ")}. Action : ${expected.action}` },
+                { type: "image_url", image_url: { url: `data:image/png;base64,${png.toString("base64")}`, detail: "low" } },
+              ],
+            },
+          ],
+        }),
+      });
+      await check(res, "contrôle image");
+      const json = (await res.json()) as {
+        choices: { message: { content: string } }[];
+        usage?: { prompt_tokens?: number; completion_tokens?: number };
+      };
+      recordTextUsage(json.usage);
+      const r = JSON.parse(json.choices[0].message.content) as { ok?: boolean; reason?: string };
+      return { ok: r.ok !== false, reason: r.reason ?? "" };
+    });
+  } catch (e) {
+    console.warn("[openai] contrôle image ignoré :", e);
+    return { ok: true, reason: "contrôle indisponible" };
+  }
+}
+
 type ImageResponse = {
   data: { b64_json?: string; url?: string }[];
   usage?: Parameters<typeof recordImageUsage>[0];
@@ -113,7 +163,7 @@ export async function editImage(
   prompt: string,
   refs: Buffer[],
   size = "1024x1536",
-  quality = process.env.OPENAI_SCENE_QUALITY || "medium",
+  quality = process.env.OPENAI_SCENE_QUALITY || "low",
 ): Promise<Buffer> {
   return withModels("image", async (model) => {
     const form = new FormData();

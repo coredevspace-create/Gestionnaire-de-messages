@@ -5,7 +5,7 @@ import { config, isMock } from "../config";
 import { changeCredits, one, sql, type Character, type Series, type Video } from "../db";
 import { getCountry, getStyle } from "../catalog/countries";
 import { fruitLabel } from "../catalog/characters";
-import { editImage, generateImage } from "../ai/openai";
+import { checkSceneImage, editImage, generateImage } from "../ai/openai";
 import { checkVideo, submitVideo } from "../ai/xai";
 import { mockClip, mockImage } from "../ai/mock";
 import { buildPlan, buildScript, type Scene, type Script, type SeriesPlan } from "../ai/script";
@@ -139,7 +139,14 @@ async function makeSceneImage(ctx: Ctx, i: number) {
   } else {
     const inScene = ctx.cast.filter((c) => scene.characters.includes(c.name));
     const refs = await Promise.all((inScene.length ? inScene : ctx.cast).slice(0, 3).map((c) => getMedia(c.sheet_path!)));
+    // Jusqu'à 2 essais : on regénère l'image (quelques centimes) plutôt que d'animer une image ratée.
     png = await editImage(scenePrompt(scene, ctx), refs, "1024x1536");
+    const verdict = await checkSceneImage(png, scene);
+    if (!verdict.ok) {
+      console.warn(`[video ${ctx.video.id}] plan ${i + 1} refusé (${verdict.reason}), nouvel essai`);
+      ctx.metrics.rejectedImages = (ctx.metrics.rejectedImages ?? 0) + 1;
+      png = await editImage(scenePrompt(scene, ctx) + `\nPrevious attempt was rejected because: ${verdict.reason}. Fix it.`, refs, "1024x1536");
+    }
   }
   scene.imagePath = await putMedia(`videos/${ctx.video.id}/scene-${i + 1}.png`, png);
 }
@@ -278,8 +285,10 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
   const noImage = scenes.map((s, i) => (s.imagePath ? -1 : i)).filter((i) => i >= 0);
   if (noImage.length) {
     await setStep(id, `Images des plans (${n - noImage.length}/${n} prêtes)`);
-    await timed(ctx.metrics, "Images des plans", () => parallel(noImage, 4, (i) => makeSceneImage(ctx, i)));
-    await saveScript(ctx, `Images des plans (${n}/${n} prêtes)`);
+    // Au plus 4 images par étape (en parallèle) pour tenir dans la durée max d'une fonction Vercel.
+    const batch = noImage.slice(0, 4);
+    await timed(ctx.metrics, "Images des plans", () => parallel(batch, 4, (i) => makeSceneImage(ctx, i)));
+    await saveScript(ctx, `Images des plans (${n - noImage.length + batch.length}/${n} prêtes)`);
     return "progress";
   }
 

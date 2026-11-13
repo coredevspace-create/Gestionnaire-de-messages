@@ -24,7 +24,8 @@ export function MetricsView({ m, seconds, credits }: { m: Metrics; seconds: numb
         <div className="stack">
           <strong>Coût estimé</strong>
           <span>Images OpenAI : {$(c.images)} ({m.images} images{m.sheets ? `, dont ${m.sheets} portraits réutilisables` : ""})</span>
-          <span>Texte (scénario) : {$(c.text)}</span>
+          <span>Texte (scénario + contrôle images) : {$(c.text)}</span>
+          {!!m.rejectedImages && <span>Images refusées puis refaites : {m.rejectedImages}</span>}
           <span>Vidéo Grok : {$(c.video)} ({m.grokSeconds} s × {PRICES.grokPerSecond} $)</span>
           <strong>Total : {$(c.total)}</strong>
           <span className="muted">
