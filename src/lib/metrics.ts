@@ -15,8 +15,13 @@ export const PRICES = {
   textInPerM: Number(process.env.PRICE_TEXT_IN_PER_M || 0.25),
   textOutPerM: Number(process.env.PRICE_TEXT_OUT_PER_M || 2),
   // Grok Imagine Video : $ par seconde générée, selon la résolution
+  // grok-imagine-video (base) : ~0,05 $/s en 480p, ~0,07 $/s en 720p
+  // grok-imagine-video-1.5 : ~0,08 $/s en 480p, ~0,14 $/s en 720p
   grokPerSecond: Number(
-    process.env.PRICE_GROK_PER_SECOND || (config.xaiVideoResolution === "720p" ? 0.14 : 0.08),
+    process.env.PRICE_GROK_PER_SECOND ||
+      (config.xaiVideoModel.includes("1.5")
+        ? config.xaiVideoResolution === "720p" ? 0.14 : 0.08
+        : config.xaiVideoResolution === "720p" ? 0.07 : 0.05),
   ),
   // $ par image envoyée à Grok
   grokPerInputImage: Number(process.env.PRICE_GROK_PER_INPUT_IMAGE || 0.01),
