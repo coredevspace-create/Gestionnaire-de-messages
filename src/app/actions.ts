@@ -128,13 +128,22 @@ export async function adminUploadMusic(_: FormState, fd: FormData): Promise<Form
   const mood = str(fd, "mood");
   if (!(file instanceof File) || !file.size) return { error: "Choisis un fichier audio." };
   if (!isMood(mood)) return { error: "Ambiance invalide." };
-  if (file.size > 4 * 1024 * 1024) return { error: "Fichier trop lourd (4 Mo max) : coupe ou compresse la musique (MP3 128 kbps)." };
+  if (file.size > 4.2 * 1024 * 1024) return { error: "Fichier trop lourd après compression. Essaie un autre fichier." };
   const ext = (file.name.match(/\.(mp3|m4a|aac|wav|ogg)$/i)?.[1] ?? "mp3").toLowerCase();
   const title = str(fd, "title") || file.name.replace(/\.[^.]+$/, "");
   const ref = await putMedia(`music/${mood}/${Date.now()}.${ext}`, Buffer.from(await file.arrayBuffer()));
   await sql("INSERT INTO music_tracks (mood, title, path) VALUES ($1, $2, $3)", [mood, title.slice(0, 120), ref]);
   revalidatePath("/admin", "layout");
   return undefined;
+}
+
+export async function adminSetMusicMood(fd: FormData) {
+  const user = await requireUser();
+  if (!isAdmin(user)) redirect("/");
+  const mood = str(fd, "mood");
+  if (!isMood(mood)) return;
+  await sql("UPDATE music_tracks SET mood = $2 WHERE id = $1", [Number(str(fd, "id")), mood]);
+  revalidatePath("/admin", "layout");
 }
 
 export async function adminDeleteMusic(fd: FormData) {
