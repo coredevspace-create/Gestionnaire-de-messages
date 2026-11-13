@@ -39,6 +39,8 @@ export type Metrics = {
   textTokensIn: number;
   textTokensOut: number;
   grokClips: number;
+  /** Secondes d'audio transcrites (sous-titres) */
+  transcribedSeconds?: number;
   grokSeconds: number;
   /** Planches de personnages générées pour cette vidéo (coût partagé ensuite) */
   sheets: number;
@@ -94,6 +96,11 @@ export function recordImageUsage(usage?: {
   m.imageTokensOut += usage.output_tokens ?? 0;
 }
 
+export function recordTranscription(seconds: number) {
+  const m = current();
+  if (m) m.transcribedSeconds = (m.transcribedSeconds ?? 0) + seconds;
+}
+
 export function recordTextUsage(usage?: { prompt_tokens?: number; completion_tokens?: number }) {
   const m = current();
   if (!m || !usage) return;
@@ -118,7 +125,9 @@ export function costOf(m: Metrics) {
       m.imageTokensOut * PRICES.imageOutPerM) /
       1e6 +
     m.imagesWithoutUsage * 0.2; // forfait prudent si l'usage n'est pas renvoyé
-  const text = (m.textTokensIn * PRICES.textInPerM + m.textTokensOut * PRICES.textOutPerM) / 1e6;
+  const text =
+    (m.textTokensIn * PRICES.textInPerM + m.textTokensOut * PRICES.textOutPerM) / 1e6 +
+    ((m.transcribedSeconds ?? 0) / 60) * 0.006;
   const video = m.grokSeconds * PRICES.grokPerSecond + m.grokClips * PRICES.grokPerInputImage;
   return { images, text, video, total: images + text + video };
 }

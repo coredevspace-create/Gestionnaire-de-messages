@@ -27,7 +27,13 @@ export function Submit({ children, name, value, className }: { children: ReactNo
   const { pending } = useFormStatus();
   return (
     <button type="submit" name={name} value={value} disabled={pending} className={className}>
-      {pending ? "…" : children}
+      {pending ? (
+        <>
+          <span className="spinner sm" /> Chargement…
+        </>
+      ) : (
+        children
+      )}
     </button>
   );
 }

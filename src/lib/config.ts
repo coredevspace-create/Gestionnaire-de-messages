@@ -14,7 +14,8 @@ export const config = {
   xaiVideoResolution: process.env.XAI_VIDEO_RESOLUTION || "480p",
   // Plans courts = rythme plus dynamique (on ne paie que les secondes affichées)
   clipSeconds: Number(process.env.CLIP_SECONDS || 6),
-  starterCredits: Number(process.env.STARTER_CREDITS || 30),
+  // Crédits offerts : de quoi faire UNE vidéo de 20 s (80) — le reste ne suffit pas pour une 2e.
+  starterCredits: Number(process.env.STARTER_CREDITS || 100),
   adminEmails: (process.env.ADMIN_EMAILS || "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
@@ -32,9 +33,9 @@ export function isMock(): boolean {
  * - long  : 70 s (comptes monétisés, > 1 min pour le programme TikTok)
  */
 export const FORMATS = {
-  short20: { label: "Court · 20 s", seconds: 20, kind: "short", credits: 8 },
-  short30: { label: "Court · 30 s", seconds: 30, kind: "short", credits: 12 },
-  long70: { label: "Long · 70 s (monétisation)", seconds: 70, kind: "long", credits: 28 },
+  short20: { label: "Court · 20 s", seconds: 20, kind: "short", credits: 80 },
+  short30: { label: "Court · 30 s", seconds: 30, kind: "short", credits: 120 },
+  long70: { label: "Long · 70 s (monétisation)", seconds: 70, kind: "long", credits: 280 },
 } as const;
 
 export type FormatId = keyof typeof FORMATS;

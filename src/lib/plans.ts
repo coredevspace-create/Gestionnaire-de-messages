@@ -4,14 +4,15 @@ import { FORMATS } from "./config";
  * Offres et prix (en centimes d'euro, TTC). Modifier ici suffit :
  * les produits Stripe sont créés automatiquement (une version par prix).
  *
- * Unité : comme Vidify, une vidéo de 30 s = 12 crédits, 70 s = 28, 20 s = 8.
+ * Unité : une vidéo de 20 s = 80 crédits, 30 s = 120, 70 s = 280
+ * (×10 par rapport à la valeur « réelle » : les montants paraissent plus généreux).
  * Prix de départ choisis pour rester sous Vidify (19,99 / 39,99 / 79,99 €)
- * tout en couvrant le coût réel mesuré (~0,14 € par crédit avec Grok de base).
+ * tout en couvrant le coût réel mesuré (~0,014 € par crédit avec Grok de base).
  */
 export const PLANS = {
-  starter: { name: "Starter", tagline: "Pour lancer ton compte", monthly: 1499, credits: 70 },
-  createur: { name: "Créateur", tagline: "Pour poster tous les 2-3 jours", monthly: 3499, credits: 180, popular: true },
-  pro: { name: "Pro", tagline: "Pour poster tous les jours", monthly: 6999, credits: 380 },
+  starter: { name: "Starter", tagline: "Pour lancer ton compte", monthly: 1499, credits: 700 },
+  createur: { name: "Créateur", tagline: "Pour poster tous les 2-3 jours", monthly: 3499, credits: 1800, popular: true },
+  pro: { name: "Pro", tagline: "Pour poster tous les jours", monthly: 6999, credits: 3800 },
 } as const;
 
 export type PlanId = keyof typeof PLANS;
@@ -21,8 +22,8 @@ export type Interval = "month" | "year";
 export const YEARLY_MONTHS_PAID = 10;
 
 export const TOPUPS = {
-  pack40: { name: "Recharge 40 crédits", price: 999, credits: 40 },
-  pack100: { name: "Recharge 100 crédits", price: 2299, credits: 100 },
+  pack40: { name: "Recharge 400 crédits", price: 999, credits: 400 },
+  pack100: { name: "Recharge 1 000 crédits", price: 2299, credits: 1000 },
 } as const;
 
 export type TopupId = keyof typeof TOPUPS;

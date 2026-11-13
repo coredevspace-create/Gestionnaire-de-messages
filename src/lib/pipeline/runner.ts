@@ -5,14 +5,14 @@ import { config, isMock } from "../config";
 import { changeCredits, one, sql, type Character, type Series, type Video } from "../db";
 import { getCountry, getStyle } from "../catalog/countries";
 import { fruitLabel } from "../catalog/characters";
-import { checkSceneImage, editImage, generateImage } from "../ai/openai";
+import { checkSceneImage, editImage, generateImage, transcribeWords } from "../ai/openai";
 import { checkVideo, submitVideo } from "../ai/xai";
 import { mockClip, mockImage } from "../ai/mock";
 import { buildPlan, buildScript, type Scene, type Script, type SeriesPlan } from "../ai/script";
 import { getMedia, mediaExists, publicMediaUrl, putMedia } from "../storage";
-import { burnSubtitles, concatClips, mixAudio, normalizeClip } from "./ffmpeg";
+import { burnSubtitles, concatClips, ffmpeg, mixAudio, normalizeClip } from "./ffmpeg";
 import { pickTrack } from "../music";
-import { buildAss, type TimedLine } from "./subtitles";
+import { buildAss, wordsToTimedLines, type TimedLine } from "./subtitles";
 import { emptyMetrics, parseMetrics, timed, withMetrics, type Metrics } from "../metrics";
 
 /**
@@ -119,16 +119,26 @@ Location: ${scene.setting}${country.id === "monde" ? "" : ` (${country.name})`}.
 Style: ${style.prompt}`;
 }
 
+/** Voix demandée à Grok — jamais d'exemples de mots (sinon Grok les prononce tels quels). */
+function voiceOf(countryId: string) {
+  const country = getCountry(countryId);
+  return country.id === "monde"
+    ? "natural spoken French from France, casual tone"
+    : `French spoken with a natural accent from ${country.name}`;
+}
+
 function videoPrompt(scene: Scene, ctx: Ctx) {
-  const country = getCountry(ctx.series.country);
   const dialogue = scene.lines
     .map((l) =>
       /\(pens[ée]e\)/i.test(l.speaker)
-        ? `${l.speaker.replace(/\s*\(pens[ée]e\)/i, "")} thinks in a voice-over (mouth closed, inner voice): "${l.text}"`
-        : `${l.speaker} says: "${l.text}"`,
+        ? `${l.speaker.replace(/\s*\(pens[ée]e\)/i, "")} (inner voice-over, mouth closed): "${l.text}"`
+        : `${l.speaker} (lips moving, facing camera): "${l.text}"`,
     )
-    .join(" Then ");
-  return `One continuous single shot, no cuts. ${scene.action}. Camera: ${scene.camera}. The characters talk with lip-sync and expressive gestures. ${dialogue}. Speech in ${country.accent}. Ambient sound of ${country.setting}. No music, no subtitles, keep characters identical to the first frame.`;
+    .join(" — then — ");
+  return `One continuous single shot, no cuts. ${scene.action}. Camera: ${scene.camera}.
+DIALOGUE — the ONLY words spoken in this clip, said clearly and completely, one voice at a time: ${dialogue}.
+Nobody says anything else: no extra words, no improvisation, no background chatter, no crowd voices. Silence before and after the line.
+Voice: ${voiceOf(ctx.series.country)}. Soft ambient sound only. No music, no subtitles, no text. Keep the characters identical to the first frame.`;
 }
 
 function sceneSeconds(ctx: Ctx): number[] {
@@ -202,20 +212,35 @@ async function assemble(ctx: Ctx): Promise<string> {
     const joined = path.join(dir, "joined.mp4");
     await concatClips(normalized, joined);
 
-    // Sous-titres : dans chaque plan, les répliques se partagent le temps selon leur longueur.
-    let t = 0;
-    const timed: TimedLine[] = [];
-    ctx.script!.scenes.forEach((s, i) => {
-      const usable = Math.max(1, secs[i] - 0.6);
-      const totalChars = s.lines.reduce((a, l) => a + l.text.length, 0) || 1;
-      let cur = t + 0.3;
-      for (const l of s.lines) {
-        const d = (usable * l.text.length) / totalChars;
-        timed.push({ speaker: l.speaker, text: l.text, start: cur, end: cur + d });
-        cur += d;
-      }
-      t += secs[i];
-    });
+    // Sous-titres : on transcrit la voix réelle de chaque plan (mot à mot) pour coller exactement
+    // à ce qui est dit. Repli : le texte du scénario réparti sur la durée du plan.
+    const offsets: number[] = [];
+    secs.reduce((acc, d) => (offsets.push(acc), acc + d), 0);
+    const perScene = await Promise.all(
+      ctx.script!.scenes.map(async (s, i): Promise<TimedLine[]> => {
+        if (!isMock()) {
+          try {
+            const mp3 = path.join(dir, `voice-${i}.mp3`);
+            await ffmpeg(["-i", normalized[i], "-vn", "-ac", "1", "-ar", "16000", "-b:a", "48k", mp3]);
+            const words = await transcribeWords(fs.readFileSync(mp3), s.lines.map((l) => l.text).join(" "));
+            const lines = wordsToTimedLines(words, s.lines, offsets[i]).filter((l) => l.end <= offsets[i] + secs[i] + 0.3);
+            if (lines.length) return lines;
+          } catch (e) {
+            console.warn(`[video ${ctx.video.id}] transcription plan ${i + 1} impossible`, e);
+          }
+        }
+        const usable = Math.max(1, secs[i] - 0.6);
+        const totalChars = s.lines.reduce((a, l) => a + l.text.length, 0) || 1;
+        let cur = offsets[i] + 0.3;
+        return s.lines.map((l) => {
+          const d = (usable * l.text.length) / totalChars;
+          const line = { speaker: l.speaker, text: l.text, start: cur, end: cur + d };
+          cur += d;
+          return line;
+        });
+      }),
+    );
+    const timed: TimedLine[] = perScene.flat();
     const assPath = path.join(dir, "subs.ass");
     const total = secs.reduce((a, b) => a + b, 0);
     const hasNext = ctx.video.episode < ctx.series.episodes_total;

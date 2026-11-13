@@ -16,7 +16,7 @@ const VIRAL_FORMULA = `FORMULE VIRALE À APPLIQUER :
 4. SECRET : quelque chose que le méchant ignore (le héros est riche en secret, a un pouvoir, a une preuve filmée, est le vrai propriétaire…). On peut révéler une PENSÉE intérieure pour mettre le spectateur dans la confidence.
 5. ESCALADE : chaque plan monte d'un cran (enjeux énormes, chiffres précis : « 5 millions », « 300 tonnes »).
 6. ARRÊT NET au moment le plus intense (juste avant la révélation ou la riposte) → le spectateur veut la suite.
-Ton : familier, vivant, punchlines, comme des vrais gens qui parlent (« frère », « mon gars », « wesh », « eh Dieu ! »), toujours compréhensible.`;
+Ton : familier et vivant, comme de vrais gens qui parlent, avec des mots simples. Toujours compréhensible.`;
 
 export type EpisodePlan = { n: number; title: string; summary: string; cliffhanger: string };
 export type SeriesPlan = { title: string; episodes: EpisodePlan[] };
@@ -121,7 +121,12 @@ export async function buildScript(input: {
 Personnages-fruits 3D. Style : ${style.prompt}.
 Règles :
 - Exactement ${sceneCount} plans, format vertical.
-- 1 à 2 répliques par plan, très courtes (max 10 mots), qui se disent en ${config.clipSeconds} secondes.
+- STRUCTURE : plan 1 = on comprend tout de suite QUI est face à QUI et QUEL est l'enjeu (accroche) ;
+  plans du milieu = le conflit monte d'un cran à chaque plan ; dernier plan = retournement ou cliffhanger.
+- UNE seule réplique par plan, dite par UN personnage visible à l'écran (deux répliques maximum si deux personnages se répondent, très courtes).
+- Chaque réplique est une PHRASE COMPLÈTE et naturelle de 6 à 12 mots, qui se dit en ${Math.max(3, config.clipSeconds - 2)} secondes,
+  compréhensible seule ET qui répond ou fait suite à la réplique précédente (pas de fragments du type « Je prends cinq. »).
+- Au maximum ${sceneCount <= 5 ? "2 ou 3" : "4"} personnages dans tout l'épisode, toujours les mêmes, pour que ce soit lisible.
 ${VIRAL_FORMULA}
 - Une pensée intérieure est permise : speaker = "Prénom (pensée)".
 - Varie les cadrages d'un plan à l'autre (gros plan visage, plan large, plan sur un objet clé : billets, téléphone, coffre…). 2 à 4 lieux maximum.
@@ -131,13 +136,14 @@ ${VIRAL_FORMULA}
   (révèle une info, accuse, ment, menace, avoue…). Pas de répliques vagues ou de remplissage.
 - Les personnages s'appellent par leur prénom ou leur rôle (« Papa », « Tonton ») dans les premiers plans pour qu'on sache qui est qui.
 - "setting", "action" et "camera" sont en ANGLAIS (servent aux prompts image/vidéo), les répliques en français.
-- "characters" ne contient que des prénoms de la liste fournie (max 3 par plan, idéalement 1 ou 2 : plus lisible).
+- "characters" ne contient que des prénoms de la liste fournie (1 ou 2 par plan).
 - "lines" ne contient QUE des paroles prononcées à voix haute par un personnage : jamais de résumé, de narration, de didascalie ni de mot comme "Fin", "Suite", "Morale".
 - Le premier plan accroche en 2 secondes : une phrase choc ou une question qui donne envie de connaître la suite.
 - Le dernier plan se termine sur une réplique choc qui illustre ce moment (sans le recopier) : ${ep.cliffhanger}
 - Chaque plan = UNE seule action continue dans UN seul lieu (pas de montage, pas de split-screen).
+- Avant d'écrire, résume l'épisode en une phrase dans "logline" ; chaque plan doit servir cette phrase.
 - "mood" = l'ambiance musicale dominante, parmi : suspense, drame, emotion, action, comedie, triomphe.
-Réponds UNIQUEMENT en JSON : {"title": string, "mood": string, "scenes": [{"characters": string[], "setting": string, "action": string, "camera": string, "lines": [{"speaker": string, "text": string}]}]}`,
+Réponds UNIQUEMENT en JSON : {"title": string, "logline": string, "mood": string, "scenes": [{"characters": string[], "setting": string, "action": string, "camera": string, "lines": [{"speaker": string, "text": string}]}]}`,
     `Pays : ${country.name} — décor : ${country.setting}
 Épisode ${ep.n} : ${ep.title}
 Résumé : ${ep.summary}

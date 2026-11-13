@@ -18,7 +18,7 @@ export const COUNTRIES: Country[] = [
     flag: "🌍",
     setting:
       "spectacular cinematic locations chosen by the story (modern city, luxury mansion, high-security prison, office tower, stadium arena, airport, high school, restaurant kitchen…)",
-    accent: "français familier et moderne de France, comme des jeunes (« frère », « gros », « wesh », « mec », « j'avoue »)",
+    accent: "français familier et naturel de France, phrases simples",
     outfits: "modern clothes that fit the character's job and social status",
     names: { male: ["Kévin", "Lucas", "Bryan", "Marco"], female: ["Sarah", "Inès", "Jessica", "Léa"] },
   },

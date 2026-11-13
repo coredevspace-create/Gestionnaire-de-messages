@@ -8,6 +8,8 @@ import { isMock } from "@/lib/config";
 import { totalCredits } from "@/lib/db";
 import { Brand, BRAND } from "@/components/Logo";
 import { logout } from "./actions";
+import { Suspense } from "react";
+import { NavProgress } from "@/components/NavProgress";
 
 export const metadata = {
   title: `${BRAND} — Mini-séries de fruits IA pour TikTok`,
@@ -21,6 +23,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="fr">
       <body>
+        <Suspense fallback={null}>
+          <NavProgress />
+        </Suspense>
         <header className="site-header">
           <div className="inner">
             <Link href={user ? "/creer" : "/"}>

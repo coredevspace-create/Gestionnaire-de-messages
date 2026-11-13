@@ -8,6 +8,7 @@ import { FORMATS, type FormatId } from "@/lib/config";
 import { mediaUrl } from "@/lib/storage";
 import type { Script } from "@/lib/ai/script";
 import { ActionForm, AutoRefresh, Submit } from "@/components/forms";
+import { GenerationProgress } from "@/components/GenerationProgress";
 import { adminToggleShowcase, nextEpisode, retry } from "@/app/actions";
 
 export default async function VideoPage({ params }: { params: Promise<{ id: string }> }) {
@@ -34,11 +35,18 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
       </p>
       <h1>{script?.title ?? series.title}</h1>
 
-      {active && (
-        <div className="card">
-          ⏳ {video.status === "queued" ? "En file d'attente…" : video.step}
-        </div>
-      )}
+      {active && (() => {
+        const p = progressOf(video.step, script);
+        return (
+          <GenerationProgress
+            stage={p.stage}
+            percent={p.percent}
+            step={video.step}
+            startedAt={new Date(video.created_at).toISOString()}
+            queued={video.status === "queued"}
+          />
+        );
+      })()}
 
       {video.status === "failed" && (
         <div className="card stack">
@@ -101,4 +109,17 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
       )}
     </div>
   );
+}
+
+/** Étape (0-4) et pourcentage estimés à partir de l'état de la génération. */
+function progressOf(step: string | null, script: Script | null): { stage: number; percent: number } {
+  const s = (step ?? "").toLowerCase();
+  const n = script?.scenes.length || 1;
+  const images = script?.scenes.filter((x) => x.imagePath).length ?? 0;
+  const clips = script?.scenes.filter((x) => x.clipPath).length ?? 0;
+  if (s.includes("montage") || clips === n) return { stage: 4, percent: 92 };
+  if (s.includes("animation") || s.includes("envoi") || images === n) return { stage: 3, percent: 45 + (clips / n) * 45 };
+  if (s.includes("image") || script) return { stage: 2, percent: 20 + (images / n) * 25 };
+  if (s.includes("scénario") || s.includes("plan de la saison")) return { stage: 1, percent: 12 };
+  return { stage: 0, percent: 5 };
 }

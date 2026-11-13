@@ -47,6 +47,60 @@ export type Overlay = {
   total: number;
 };
 
+/**
+ * Transforme des mots horodatés (transcription réelle) en sous-titres de 1 à 3 mots,
+ * coupés aux pauses. Les mots sont attribués aux répliques du plan dans l'ordre.
+ */
+export function wordsToTimedLines(
+  words: { word: string; start: number; end: number }[],
+  lines: { speaker: string; text: string }[],
+  offset: number,
+): TimedLine[] {
+  if (!words.length) return [];
+  const counts = lines.map((l) => Math.max(1, l.text.split(/\s+/).length));
+  const total = counts.reduce((a, b) => a + b, 0);
+  const speakerAt = (i: number) => {
+    let acc = 0;
+    for (let k = 0; k < lines.length; k++) {
+      acc += (counts[k] / total) * words.length;
+      if (i < Math.round(acc)) return lines[k]?.speaker ?? "";
+    }
+    return lines[lines.length - 1]?.speaker ?? "";
+  };
+  const out: TimedLine[] = [];
+  let cur: { words: string[]; start: number; end: number; speaker: string } | null = null;
+  words.forEach((w, i) => {
+    const speaker = speakerAt(i);
+    const gap = cur ? w.start - cur.end : 0;
+    if (!cur || cur.words.length >= 3 || gap > 0.35 || speaker !== cur.speaker) {
+      if (cur) out.push({ speaker: cur.speaker, text: cur.words.join(" "), start: offset + cur.start, end: offset + cur.end });
+      cur = { words: [], start: w.start, end: w.end, speaker };
+    }
+    cur.words.push(w.word.trim());
+    cur.end = w.end;
+  });
+  if (cur) {
+    const c = cur as { words: string[]; start: number; end: number; speaker: string };
+    out.push({ speaker: c.speaker, text: c.words.join(" "), start: offset + c.start, end: offset + c.end });
+  }
+  // Un mot isolé en fin de phrase est rattaché au morceau précédent (même personnage, sans pause).
+  for (let i = out.length - 1; i > 0; i--) {
+    const a = out[i - 1];
+    const b = out[i];
+    if (b.text.split(" ").length === 1 && a.speaker === b.speaker && b.start - a.end < 0.35 && a.text.split(" ").length <= 3) {
+      a.text += " " + b.text;
+      a.end = b.end;
+      out.splice(i, 1);
+    }
+  }
+  // Chaque sous-titre reste affiché jusqu'au suivant (max 0,6 s de plus) pour éviter le clignotement.
+  for (let i = 0; i < out.length; i++) {
+    const next = out[i + 1]?.start ?? out[i].end + 0.6;
+    out[i].end = Math.min(next, out[i].end + 0.6);
+  }
+  return out;
+}
+
 export function buildAss(lines: TimedLine[], overlay?: Overlay): string {
   const who = (sp: string) => sp.replace(/\s*\(pens[ée]e\)\s*$/i, "").trim();
   const speakers = [...new Set(lines.map((l) => who(l.speaker)))];

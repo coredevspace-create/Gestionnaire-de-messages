@@ -1,5 +1,5 @@
 import { config } from "../config";
-import { recordImageUsage, recordTextUsage } from "../metrics";
+import { recordImageUsage, recordTextUsage, recordTranscription } from "../metrics";
 
 const BASE = "https://api.openai.com/v1";
 
@@ -200,4 +200,25 @@ export async function moderate(text: string): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+export type Word = { word: string; start: number; end: number };
+
+/**
+ * Transcription mot à mot (horodatée) de l'audio d'un plan, pour que les sous-titres
+ * affichent exactement ce qui est dit, au bon moment. ~0,006 $ par minute.
+ */
+export async function transcribeWords(audio: Buffer, hint: string): Promise<Word[]> {
+  const form = new FormData();
+  form.append("file", new Blob([new Uint8Array(audio)], { type: "audio/mpeg" }), "plan.mp3");
+  form.append("model", process.env.OPENAI_TRANSCRIBE_MODEL || "whisper-1");
+  form.append("language", "fr");
+  form.append("response_format", "verbose_json");
+  form.append("timestamp_granularities[]", "word");
+  form.append("prompt", hint.slice(0, 400));
+  const res = await fetch(`${BASE}/audio/transcriptions`, { method: "POST", headers: headers(), body: form });
+  await check(res, "transcription");
+  const json = (await res.json()) as { words?: Word[]; duration?: number };
+  recordTranscription(json.duration ?? 0);
+  return (json.words ?? []).filter((w) => w.word?.trim());
 }

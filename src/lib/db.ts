@@ -74,6 +74,10 @@ CREATE TABLE IF NOT EXISTS videos (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS app_meta (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
 CREATE TABLE IF NOT EXISTS bg_jobs (
   id SERIAL PRIMARY KEY,
   kind TEXT NOT NULL,
@@ -137,6 +141,15 @@ async function connect(): Promise<Exec> {
     exec = async (sql, params = []) => (await lite.query(sql, params)).rows as never;
   }
   for (const stmt of SCHEMA.split(";").map((s) => s.trim()).filter(Boolean)) await exec(stmt);
+  // Migration unique : crédits ×10 (même valeur, montants affichés plus généreux). Atomique (un seul bloc).
+  await exec(`DO $m$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM app_meta WHERE key = 'credits_x10') THEN
+      INSERT INTO app_meta (key) VALUES ('credits_x10');
+      UPDATE users SET credits = credits * 10, sub_credits = sub_credits * 10;
+      UPDATE videos SET credits_cost = credits_cost * 10;
+      UPDATE credit_ledger SET delta = delta * 10;
+    END IF;
+  END $m$`);
   return exec;
 }
 

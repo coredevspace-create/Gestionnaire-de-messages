@@ -43,11 +43,33 @@ function grad(id: string) {
   return GRADS[h % GRADS.length];
 }
 
+/** Écran plein pendant l'envoi : on voit tout de suite que ça démarre. */
+function LaunchOverlay() {
+  const { pending } = useFormStatus();
+  if (!pending) return null;
+  return (
+    <div className="launch-overlay" role="status" aria-live="polite">
+      <div>
+        <div className="clap">🎬</div>
+        <h2>Lancement du tournage…</h2>
+        <p className="muted">On réserve tes crédits et on prépare les personnages.</p>
+        <div className="spinner" style={{ margin: "18px auto 0" }} />
+      </div>
+    </div>
+  );
+}
+
 function GenerateButton({ disabled, label }: { disabled: boolean; label: string }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" className="btn-lg st-go" disabled={disabled || pending}>
-      {pending ? "Lancement…" : label}
+      {pending ? (
+        <>
+          <span className="spinner sm" /> Lancement…
+        </>
+      ) : (
+        label
+      )}
     </button>
   );
 }
@@ -72,6 +94,7 @@ export function Studio(p: Props) {
 
   return (
     <form action={action} className="st">
+      <LaunchOverlay />
       <input type="hidden" name="storyId" value={isIdea ? "" : (story?.id ?? "")} />
       <input type="hidden" name="format" value={format} />
       <input type="hidden" name="episodes" value={episodes} />

@@ -80,6 +80,7 @@ export async function createVideo(_: FormState, fd: FormData): Promise<FormState
     if (e instanceof UserError) return { error: e.message };
     throw e;
   }
+  revalidatePath("/", "layout");
   redirect(`/videos/${id}`);
 }
 
@@ -92,6 +93,7 @@ export async function nextEpisode(_: FormState, fd: FormData): Promise<FormState
     if (e instanceof UserError) return { error: e.message };
     throw e;
   }
+  revalidatePath("/", "layout");
   redirect(`/videos/${id}`);
 }
 
@@ -104,6 +106,7 @@ export async function retry(_: FormState, fd: FormData): Promise<FormState> {
     if (e instanceof UserError) return { error: e.message };
     throw e;
   }
+  revalidatePath("/", "layout");
   redirect(`/videos/${id}`);
 }
 
