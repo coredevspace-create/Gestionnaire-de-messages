@@ -10,7 +10,7 @@ import { adminGrantCredits } from "../actions";
 
 export default async function AdminPage() {
   const user = await requireUser();
-  if (!isAdmin(user)) redirect("/");
+  if (!isAdmin(user)) redirect("/creer");
   const users = await sql<{ id: number; email: string; credits: number; monetized: boolean; country: string; created_at: Date; plan: string | null }>(
     "SELECT id, email, credits + sub_credits AS credits, monetized, country, created_at, plan FROM users ORDER BY id DESC LIMIT 200",
   );

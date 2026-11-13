@@ -5,9 +5,9 @@ import { saveProfile } from "@/app/actions";
 /** Les 2 seules questions posées — une fois pour toutes. */
 export function ProfileForm({ user, submitLabel }: { user: User; submitLabel: string }) {
   return (
-    <form action={saveProfile} className="stack" style={{ maxWidth: 520 }}>
+    <form action={saveProfile} className="stack" style={{ maxWidth: 560 }}>
       <fieldset className="card stack">
-        <legend>Ton compte TikTok est-il monétisé ?</legend>
+        <legend style={{ fontWeight: 700, padding: "0 6px" }}>Ton compte TikTok est-il monétisé ?</legend>
         <label>
           <input type="radio" name="monetized" value="0" defaultChecked={!user.monetized} /> Pas encore —
           je veux grandir (vidéos courtes 20-30 s)

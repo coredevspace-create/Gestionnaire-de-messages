@@ -113,6 +113,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
 ALTER TABLE credit_ledger ADD COLUMN IF NOT EXISTS ref TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS credit_ledger_ref ON credit_ledger(ref) WHERE ref IS NOT NULL;
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS music BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS showcase BOOLEAN NOT NULL DEFAULT false;
 `;
 
 async function connect(): Promise<Exec> {

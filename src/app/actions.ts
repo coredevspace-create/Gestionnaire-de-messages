@@ -43,7 +43,7 @@ export async function login(_: FormState, fd: FormData): Promise<FormState> {
     return { error: "Email ou mot de passe incorrect." };
   }
   await createSession(row.id);
-  redirect("/");
+  redirect("/creer");
 }
 
 export async function logout() {
@@ -61,7 +61,7 @@ export async function saveProfile(fd: FormData) {
     COUNTRIES.some((c) => c.id === country) ? country : "ci",
     user.id,
   ]);
-  redirect("/");
+  redirect("/creer");
 }
 
 export async function createVideo(_: FormState, fd: FormData): Promise<FormState> {
@@ -196,4 +196,13 @@ export async function openPortal() {
   const user = await requireUser();
   if (!stripeEnabled()) redirect("/abonnement");
   redirect(await portalUrl(user, await originUrl()));
+}
+
+/** Met une vidéo en avant sur la page d'accueil (admin). */
+export async function adminToggleShowcase(fd: FormData) {
+  const user = await requireUser();
+  if (!isAdmin(user)) redirect("/creer");
+  const id = Number(str(fd, "id"));
+  await sql("UPDATE videos SET showcase = NOT showcase WHERE id = $1", [id]);
+  revalidatePath(`/videos/${id}`);
 }

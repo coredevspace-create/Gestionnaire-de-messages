@@ -10,7 +10,7 @@ export default async function CreationsPage() {
   const series = await sql<Series>("SELECT * FROM series WHERE user_id = $1 ORDER BY id DESC", [user.id]);
   const videos = await sql<Video>("SELECT * FROM videos WHERE user_id = $1 ORDER BY episode, id", [user.id]);
 
-  if (!series.length) return <p>Aucune création pour l&apos;instant. <Link href="/">Crée ta première vidéo</Link>.</p>;
+  if (!series.length) return <p>Aucune création pour l&apos;instant. <Link className="link" href="/creer">Crée ta première vidéo</Link>.</p>;
 
   return (
     <div className="stack">

@@ -180,3 +180,24 @@ export async function editImage(
     return toBuffer((await res.json()) as ImageResponse);
   });
 }
+
+/**
+ * Modération (gratuite chez OpenAI) des idées écrites par les utilisateurs.
+ * Renvoie la liste des catégories problématiques (vide = OK). En cas de panne de l'API, on laisse passer.
+ */
+export async function moderate(text: string): Promise<string[]> {
+  try {
+    const res = await fetch(`${BASE}/moderations`, {
+      method: "POST",
+      headers: headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ model: process.env.OPENAI_MODERATION_MODEL || "omni-moderation-latest", input: text }),
+    });
+    if (!res.ok) return [];
+    const json = (await res.json()) as { results?: { flagged: boolean; categories: Record<string, boolean> }[] };
+    const r = json.results?.[0];
+    if (!r?.flagged) return [];
+    return Object.entries(r.categories).filter(([, v]) => v).map(([k]) => k);
+  } catch {
+    return [];
+  }
+}

@@ -8,7 +8,7 @@ import { FORMATS, type FormatId } from "@/lib/config";
 import { mediaUrl } from "@/lib/storage";
 import type { Script } from "@/lib/ai/script";
 import { ActionForm, AutoRefresh, Submit } from "@/components/forms";
-import { nextEpisode, retry } from "@/app/actions";
+import { adminToggleShowcase, nextEpisode, retry } from "@/app/actions";
 
 export default async function VideoPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -58,6 +58,14 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
             <a href={mediaUrl(video.output_path)!} download={`episode-${video.episode}.mp4`}>
               ⬇️ Télécharger la vidéo
             </a>
+            {isAdmin(user) && (
+              <form action={adminToggleShowcase}>
+                <input type="hidden" name="id" value={video.id} />
+                <button className="secondary btn-sm">
+                  {(video as Video & { showcase?: boolean }).showcase ? "★ En vitrine (retirer)" : "☆ Mettre en vitrine sur l'accueil"}
+                </button>
+              </form>
+            )}
             {canNext && (
               <ActionForm action={nextEpisode}>
                 <input type="hidden" name="seriesId" value={series.id} />

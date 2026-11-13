@@ -44,10 +44,10 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       <ActionForm action={startCheckout} className="stack">
         <input type="hidden" name="interval" value={interval} />
         <div className="row">
-          <Link href="/abonnement" className="tag" style={!yearly ? { background: "#7c3aed" } : undefined}>
+          <Link href="/abonnement" className="tag" style={!yearly ? { background: "var(--text)", color: "#120e10" } : undefined}>
             Mensuel
           </Link>
-          <Link href="/abonnement?periode=annuel" className="tag" style={yearly ? { background: "#7c3aed" } : undefined}>
+          <Link href="/abonnement?periode=annuel" className="tag" style={yearly ? { background: "var(--text)", color: "#120e10" } : undefined}>
             Annuel · {12 - YEARLY_MONTHS_PAID} mois offerts
           </Link>
         </div>
@@ -65,7 +65,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
             const price = planPrice(id, interval);
             const credits = planCredits(id, interval);
             return (
-              <div key={id} className="card stack" style={"popular" in p && p.popular ? { borderColor: "#7c3aed" } : undefined}>
+              <div key={id} className={`card stack${"popular" in p && p.popular ? " highlight" : ""}`}>
                 {"popular" in p && p.popular && <span className="tag">Le plus choisi</span>}
                 <h2 style={{ margin: 0 }}>{p.name}</h2>
                 <span className="muted">{p.tagline}</span>
