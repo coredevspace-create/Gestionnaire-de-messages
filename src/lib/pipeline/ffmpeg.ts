@@ -48,7 +48,6 @@ export function subtitlesFilter(file: string, style: string) {
   return `subtitles='${filterPath(file)}':fontsdir='${filterPath(FONTS_DIR)}':force_style='${style}'`;
 }
 
-export const SUB_STYLE = `FontName=${FONT_NAME},FontSize=13,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Alignment=2,MarginV=70`;
 
 /** Normalise un clip : 720x1280, 30 fps, piste audio garantie, durée fixe. */
 export async function normalizeClip(input: string, output: string, seconds: number) {
@@ -75,12 +74,12 @@ export async function concatClips(inputs: string[], output: string) {
   fs.unlinkSync(list);
 }
 
-/** Incruste des sous-titres SRT ; en cas d'échec, garde la vidéo sans sous-titres. */
-export async function burnSubtitles(input: string, srt: string, output: string) {
+/** Incruste des sous-titres ASS ; en cas d'échec, garde la vidéo sans sous-titres. */
+export async function burnSubtitles(input: string, ass: string, output: string) {
   try {
     await ffmpeg([
       "-i", input,
-      "-vf", subtitlesFilter(srt, SUB_STYLE),
+      "-vf", `ass='${filterPath(ass)}':fontsdir='${filterPath(FONTS_DIR)}'`,
       "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-c:a", "copy",
       "-movflags", "+faststart", output,
     ]);

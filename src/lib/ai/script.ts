@@ -49,7 +49,8 @@ export async function buildPlan(input: {
   const country = getCountry(input.countryId);
   return chatJSON<SeriesPlan>(
     `Tu es scénariste de mini-séries virales TikTok jouées par des personnages-fruits en 3D.
-Public : Afrique francophone. Ton : drôle, dramatique, rebondissements, punchlines.
+Public : Afrique francophone (et diaspora). Ton : drôle, dramatique, rebondissements, punchlines.
+L'histoire doit être simple à suivre : un enjeu clair (argent, mariage, trahison, honte publique…), des personnages aux motivations évidentes.
 Réponds UNIQUEMENT en JSON : {"title": string, "episodes": [{"n": number, "title": string, "summary": string, "cliffhanger": string}]}.
 Chaque épisode (sauf le dernier) finit sur un suspense fort. Le dernier épisode finit sur une chute drôle ou choquante (décrite en une phrase, pas "Fin").`,
     `Pays : ${country.name} (${country.setting}).
@@ -99,11 +100,16 @@ export async function buildScript(input: {
 Personnages-fruits 3D. Style : ${style.prompt}.
 Règles :
 - Exactement ${sceneCount} plans, format vertical.
-- 1 à 2 répliques par plan, très courtes (max 12 mots), en français avec l'accent et les expressions : ${country.accent}.
+- 1 à 2 répliques par plan, très courtes (max 12 mots).
+- LISIBILITÉ AVANT TOUT : français simple que n'importe quel francophone comprend du premier coup.
+  Couleur locale (${country.accent}) : au maximum UNE expression locale par plan, toujours compréhensible grâce au contexte.
+- L'histoire doit être claire même sans le son : situation → conflit → retournement. Chaque réplique fait avancer l'histoire
+  (révèle une info, accuse, ment, menace, avoue…). Pas de répliques vagues ou de remplissage.
+- Les personnages s'appellent par leur prénom ou leur rôle (« Papa », « Tonton ») dans les premiers plans pour qu'on sache qui est qui.
 - "setting", "action" et "camera" sont en ANGLAIS (servent aux prompts image/vidéo), les répliques en français.
 - "characters" ne contient que des prénoms de la liste fournie (max 3 par plan).
 - "lines" ne contient QUE des paroles prononcées à voix haute par un personnage : jamais de résumé, de narration, de didascalie ni de mot comme "Fin", "Suite", "Morale".
-- Le premier plan accroche en 2 secondes.
+- Le premier plan accroche en 2 secondes : une phrase choc ou une question qui donne envie de connaître la suite.
 - Le dernier plan se termine sur une réplique choc qui illustre ce moment (sans le recopier) : ${ep.cliffhanger}
 - Chaque plan = UNE seule action continue dans UN seul lieu (pas de montage, pas de split-screen).
 Réponds UNIQUEMENT en JSON : {"title": string, "scenes": [{"characters": string[], "setting": string, "action": string, "camera": string, "lines": [{"speaker": string, "text": string}]}]}`,

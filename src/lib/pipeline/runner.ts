@@ -10,7 +10,8 @@ import { checkVideo, submitVideo } from "../ai/xai";
 import { mockClip, mockImage } from "../ai/mock";
 import { buildPlan, buildScript, type Scene, type Script, type SeriesPlan } from "../ai/script";
 import { getMedia, mediaExists, publicMediaUrl, putMedia } from "../storage";
-import { burnSubtitles, concatClips, normalizeClip, toSrtTime } from "./ffmpeg";
+import { burnSubtitles, concatClips, normalizeClip } from "./ffmpeg";
+import { buildAss, type TimedLine } from "./subtitles";
 import { emptyMetrics, parseMetrics, timed, withMetrics, type Metrics } from "../metrics";
 
 /**
@@ -187,22 +188,25 @@ async function assemble(ctx: Ctx): Promise<string> {
     const joined = path.join(dir, "joined.mp4");
     await concatClips(normalized, joined);
 
-    // Sous-titres : chaque réplique occupe une part égale de son plan.
+    // Sous-titres : dans chaque plan, les répliques se partagent le temps selon leur longueur.
     let t = 0;
-    let n = 1;
-    const srt: string[] = [];
+    const timed: TimedLine[] = [];
     ctx.script!.scenes.forEach((s, i) => {
-      const per = secs[i] / Math.max(1, s.lines.length);
-      s.lines.forEach((l, j) => {
-        srt.push(`${n++}\n${toSrtTime(t + j * per + 0.1)} --> ${toSrtTime(t + (j + 1) * per - 0.1)}\n${l.text}\n`);
-      });
+      const usable = Math.max(1, secs[i] - 0.6);
+      const totalChars = s.lines.reduce((a, l) => a + l.text.length, 0) || 1;
+      let cur = t + 0.3;
+      for (const l of s.lines) {
+        const d = (usable * l.text.length) / totalChars;
+        timed.push({ speaker: l.speaker, text: l.text, start: cur, end: cur + d });
+        cur += d;
+      }
       t += secs[i];
     });
-    const srtPath = path.join(dir, "subs.srt");
-    fs.writeFileSync(srtPath, srt.join("\n"));
+    const assPath = path.join(dir, "subs.ass");
+    fs.writeFileSync(assPath, buildAss(timed));
 
     const final = path.join(dir, "final.mp4");
-    await burnSubtitles(joined, srtPath, final);
+    await burnSubtitles(joined, assPath, final);
     return putMedia(`videos/${ctx.video.id}/final.mp4`, fs.readFileSync(final));
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
