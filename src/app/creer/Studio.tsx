@@ -200,9 +200,16 @@ export function Studio(p: Props) {
           </div>
 
           <div className="st-launch">
-            <GenerateButton disabled={!ready || !enough} label={`Générer · ${fmt.credits} crédits →`} />
+            <GenerateButton
+              disabled={!ready || !enough}
+              label={episodes > 1 ? `Générer la partie 1 · ${fmt.credits} crédits →` : `Générer · ${fmt.credits} crédits →`}
+            />
             <span className={`muted ${enough ? "" : "warn"}`}>
-              {enough ? `Il te restera ${p.credits - fmt.credits} crédits` : "Crédits insuffisants — recharge sur Abonnement"}
+              {!enough
+                ? "Crédits insuffisants — recharge sur Abonnement"
+                : episodes > 1
+                  ? `Série complète : ${episodes} × ${fmt.credits} = ${episodes * fmt.credits} crédits, payés partie par partie · il te restera ${p.credits - fmt.credits}`
+                  : `Il te restera ${p.credits - fmt.credits} crédits`}
             </span>
           </div>
         </div>
