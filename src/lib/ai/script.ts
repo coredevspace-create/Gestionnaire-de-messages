@@ -42,7 +42,7 @@ export async function buildPlan(input: {
         n: i + 1,
         title: input.episodes === 1 ? input.title : `${input.title} — partie ${i + 1}`,
         summary: `${input.pitch} (épisode ${i + 1})`,
-        cliffhanger: i + 1 < input.episodes ? "Et là, quelqu'un frappe à la porte…" : "Fin.",
+        cliffhanger: i + 1 < input.episodes ? "Et là, quelqu'un frappe à la porte…" : "Tout le quartier éclate de rire.",
       })),
     };
   }
@@ -51,7 +51,7 @@ export async function buildPlan(input: {
     `Tu es scénariste de mini-séries virales TikTok jouées par des personnages-fruits en 3D.
 Public : Afrique francophone. Ton : drôle, dramatique, rebondissements, punchlines.
 Réponds UNIQUEMENT en JSON : {"title": string, "episodes": [{"n": number, "title": string, "summary": string, "cliffhanger": string}]}.
-Chaque épisode (sauf le dernier) finit sur un suspense fort.`,
+Chaque épisode (sauf le dernier) finit sur un suspense fort. Le dernier épisode finit sur une chute drôle ou choquante (décrite en une phrase, pas "Fin").`,
     `Pays : ${country.name} (${country.setting}).
 Titre : ${input.title}
 Pitch : ${input.pitch}
@@ -102,7 +102,10 @@ Règles :
 - 1 à 2 répliques par plan, très courtes (max 12 mots), en français avec l'accent et les expressions : ${country.accent}.
 - "setting", "action" et "camera" sont en ANGLAIS (servent aux prompts image/vidéo), les répliques en français.
 - "characters" ne contient que des prénoms de la liste fournie (max 3 par plan).
-- Le premier plan accroche en 2 secondes, le dernier finit sur : ${ep.cliffhanger}
+- "lines" ne contient QUE des paroles prononcées à voix haute par un personnage : jamais de résumé, de narration, de didascalie ni de mot comme "Fin", "Suite", "Morale".
+- Le premier plan accroche en 2 secondes.
+- Le dernier plan se termine sur une réplique choc qui illustre ce moment (sans le recopier) : ${ep.cliffhanger}
+- Chaque plan = UNE seule action continue dans UN seul lieu (pas de montage, pas de split-screen).
 Réponds UNIQUEMENT en JSON : {"title": string, "scenes": [{"characters": string[], "setting": string, "action": string, "camera": string, "lines": [{"speaker": string, "text": string}]}]}`,
     `Pays : ${country.name} — décor : ${country.setting}
 Épisode ${ep.n} : ${ep.title}

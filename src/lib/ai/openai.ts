@@ -1,4 +1,5 @@
 import { config } from "../config";
+import { recordImageUsage, recordTextUsage } from "../metrics";
 
 const BASE = "https://api.openai.com/v1";
 
@@ -68,14 +69,22 @@ export async function chatJSON<T>(system: string, user: string): Promise<T> {
       }),
     });
     await check(res, "texte");
-    const json = (await res.json()) as { choices: { message: { content: string } }[] };
+    const json = (await res.json()) as {
+      choices: { message: { content: string } }[];
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+    };
+    recordTextUsage(json.usage);
     return JSON.parse(json.choices[0].message.content) as T;
   });
 }
 
-type ImageResponse = { data: { b64_json?: string; url?: string }[] };
+type ImageResponse = {
+  data: { b64_json?: string; url?: string }[];
+  usage?: Parameters<typeof recordImageUsage>[0];
+};
 
 async function toBuffer(json: ImageResponse): Promise<Buffer> {
+  recordImageUsage(json.usage);
   const item = json.data?.[0];
   if (item?.b64_json) return Buffer.from(item.b64_json, "base64");
   if (item?.url) return Buffer.from(await (await fetch(item.url)).arrayBuffer());
@@ -83,12 +92,16 @@ async function toBuffer(json: ImageResponse): Promise<Buffer> {
 }
 
 /** Génère une image à partir d'un prompt (planche de personnage). */
-export async function generateImage(prompt: string, size = "1536x1024"): Promise<Buffer> {
+/**
+ * Qualité : "low" | "medium" | "high". Les planches (réutilisées à vie) en "high",
+ * les images de plan (simple 1re image d'une vidéo 480p) en "medium" pour réduire le coût.
+ */
+export async function generateImage(prompt: string, size = "1536x1024", quality = "high"): Promise<Buffer> {
   return withModels("image", async (model) => {
     const res = await fetch(`${BASE}/images/generations`, {
       method: "POST",
       headers: headers({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ model, prompt, size, n: 1 }),
+      body: JSON.stringify({ model, prompt, size, quality, n: 1 }),
     });
     await check(res, "image");
     return toBuffer((await res.json()) as ImageResponse);
@@ -96,12 +109,18 @@ export async function generateImage(prompt: string, size = "1536x1024"): Promise
 }
 
 /** Génère une image en s'appuyant sur des images de référence (planches des personnages). */
-export async function editImage(prompt: string, refs: Buffer[], size = "1024x1536"): Promise<Buffer> {
+export async function editImage(
+  prompt: string,
+  refs: Buffer[],
+  size = "1024x1536",
+  quality = process.env.OPENAI_SCENE_QUALITY || "medium",
+): Promise<Buffer> {
   return withModels("image", async (model) => {
     const form = new FormData();
     form.append("model", model);
     form.append("prompt", prompt);
     form.append("size", size);
+    form.append("quality", quality);
     form.append("n", "1");
     refs.forEach((buf, i) =>
       form.append("image[]", new Blob([new Uint8Array(buf)], { type: "image/png" }), `ref-${i}.png`),

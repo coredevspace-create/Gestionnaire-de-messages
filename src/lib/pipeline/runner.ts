@@ -11,6 +11,7 @@ import { mockClip, mockImage } from "../ai/mock";
 import { buildPlan, buildScript, type Scene, type Script, type SeriesPlan } from "../ai/script";
 import { getMedia, mediaExists, publicMediaUrl, putMedia } from "../storage";
 import { burnSubtitles, concatClips, normalizeClip, toSrtTime } from "./ffmpeg";
+import { emptyMetrics, parseMetrics, timed, withMetrics, type Metrics } from "../metrics";
 
 /**
  * Pipeline découpé en petites étapes pour tenir dans les fonctions Vercel (max 300 s).
@@ -24,7 +25,21 @@ import { burnSubtitles, concatClips, normalizeClip, toSrtTime } from "./ffmpeg";
 export const WORK_BUDGET_MS = Number(process.env.WORK_BUDGET_MS || 240_000);
 const LEASE_SECONDS = 290;
 
-type Ctx = { video: Video; series: Series; cast: Character[]; script: Script | null; plan: SeriesPlan | null };
+type Ctx = {
+  video: Video;
+  series: Series;
+  cast: Character[];
+  script: Script | null;
+  plan: SeriesPlan | null;
+  metrics: Metrics;
+};
+
+/** Version des portraits de référence : changer la valeur force leur régénération. */
+const SHEET_VERSION = "portrait-v2";
+
+function sheetIsCurrent(c: Character) {
+  return !!c.sheet_path && c.sheet_path.includes(SHEET_VERSION);
+}
 
 async function setStep(id: number, step: string, extra: Record<string, string | null> = {}) {
   const fields: Record<string, string | null> = { step, ...extra };
@@ -36,7 +51,24 @@ async function setStep(id: number, step: string, extra: Record<string, string | 
 }
 
 async function saveScript(ctx: Ctx, step: string) {
-  await setStep(ctx.video.id, step, { script_json: JSON.stringify(ctx.script) });
+  await setStep(ctx.video.id, step, {
+    script_json: JSON.stringify(ctx.script),
+    metrics_json: JSON.stringify(ctx.metrics),
+  });
+}
+
+async function saveMetrics(ctx: Ctx) {
+  await sql("UPDATE videos SET metrics_json = $2 WHERE id = $1", [ctx.video.id, JSON.stringify(ctx.metrics)]);
+}
+
+/** Lance des tâches en parallèle (max `limit` à la fois). */
+async function parallel<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
+  const queue = [...items];
+  await Promise.all(
+    Array.from({ length: Math.min(limit, queue.length) }, async () => {
+      while (queue.length) await fn(queue.shift()!);
+    }),
+  );
 }
 
 function slug(s: string) {
@@ -45,21 +77,28 @@ function slug(s: string) {
 
 // ---------- Unités de travail (chacune < ~2 min) ----------
 
-/** Planche de référence d'un personnage — générée UNE fois, partagée par tous. */
+/**
+ * Portrait de référence d'un personnage — généré UNE fois, partagé par tous.
+ * Une seule pose plein cadre (pas de planche multi-vues : sinon les images de plan
+ * reproduisent la mise en page en mosaïque).
+ */
 async function makeSheet(c: Character): Promise<void> {
   const country = getCountry(c.country);
   const style = getStyle(c.style);
   let png: Buffer;
   if (isMock()) {
-    png = await mockImage(`Planche · ${c.name}`, `${fruitLabel(c.fruit)} — ${c.role}\n${country.name}`, "landscape");
+    png = await mockImage(`Portrait · ${c.name}`, `${fruitLabel(c.fruit)} — ${c.role}\n${country.name}`);
   } else {
     png = await generateImage(
-      `Character reference sheet (turnaround) of ONE character: ${c.name}, an anthropomorphic character whose head is a realistic ${c.fruit} with an expressive face, human body. ${c.look}. Culture: ${country.name}.
-Show the same character: front view, 3/4 view, side view, back view, plus 3 facial expressions (happy, angry, shocked). Plain light grey background, no text, consistent outfit and proportions. Style: ${style.prompt}`,
-      "1536x1024",
+      `Single full-body character portrait of ONE character: ${c.name}, an anthropomorphic character whose head is a realistic ${c.fruit} with an expressive face, human body. ${c.look}. Culture: ${country.name}.
+Standing, front three-quarter view, neutral friendly expression, whole body visible from head to feet, centered.
+ONE single image of ONE character only: no grid, no panels, no multiple views, no collage, no turnaround, no text. Plain light grey studio background.
+Style: ${style.prompt}`,
+      "1024x1536",
+      "high",
     );
   }
-  const ref = await putMedia(`characters/${c.id}-${slug(c.name)}-${c.fruit}.png`, png);
+  const ref = await putMedia(`characters/${c.id}-${slug(c.name)}-${c.fruit}-${SHEET_VERSION}.png`, png);
   await sql("UPDATE characters SET sheet_path = $2 WHERE id = $1", [c.id, ref]);
   c.sheet_path = ref;
 }
@@ -69,16 +108,19 @@ function scenePrompt(scene: Scene, ctx: Ctx) {
   const country = getCountry(ctx.series.country);
   const who = ctx.cast
     .filter((c) => scene.characters.includes(c.name))
-    .map((c) => `${c.name} (the ${c.fruit}-headed character from the reference sheet)`)
+    .map((c) => `${c.name} (the ${c.fruit}-headed character)`)
     .join(", ");
-  return `First frame of a vertical 9:16 movie shot. Characters: ${who || "the characters from the reference sheets"}. They must look EXACTLY like their reference sheets (same fruit head, face, outfit).
-Location: ${scene.setting} (${country.name}). Action: ${scene.action}. Camera: ${scene.camera}. No text, no subtitles. Style: ${style.prompt}`;
+  return `ONE single cinematic still frame (the first frame of a vertical 9:16 movie shot), one continuous scene filling the whole image.
+STRICTLY FORBIDDEN: grid, panels, comic layout, split screen, collage, multiple frames, borders, insets, text, subtitles.
+Characters: ${who || "the characters from the reference images"}. The reference images only show what each character looks like: keep EXACTLY the same fruit head, face and outfit, but place them together in the new scene.
+Location: ${scene.setting} (${country.name}). Action: ${scene.action}. Camera: ${scene.camera}.
+Style: ${style.prompt}`;
 }
 
 function videoPrompt(scene: Scene, ctx: Ctx) {
   const country = getCountry(ctx.series.country);
   const dialogue = scene.lines.map((l) => `${l.speaker} says: "${l.text}"`).join(" Then ");
-  return `${scene.action}. Camera: ${scene.camera}. The characters talk with lip-sync and expressive gestures. ${dialogue}. Speech in ${country.accent}. Ambient sound of ${country.setting}. No music, no subtitles, keep characters identical to the first frame.`;
+  return `One continuous single shot, no cuts. ${scene.action}. Camera: ${scene.camera}. The characters talk with lip-sync and expressive gestures. ${dialogue}. Speech in ${country.accent}. Ambient sound of ${country.setting}. No music, no subtitles, keep characters identical to the first frame.`;
 }
 
 function sceneSeconds(ctx: Ctx): number[] {
@@ -95,7 +137,7 @@ async function makeSceneImage(ctx: Ctx, i: number) {
     png = await mockImage(`Plan ${i + 1}`, `${scene.characters.join(" & ")}\n\n${scene.action}`);
   } else {
     const inScene = ctx.cast.filter((c) => scene.characters.includes(c.name));
-    const refs = await Promise.all((inScene.length ? inScene : ctx.cast).slice(0, 4).map((c) => getMedia(c.sheet_path!)));
+    const refs = await Promise.all((inScene.length ? inScene : ctx.cast).slice(0, 3).map((c) => getMedia(c.sheet_path!)));
     png = await editImage(scenePrompt(scene, ctx), refs, "1024x1536");
   }
   scene.imagePath = await putMedia(`videos/${ctx.video.id}/scene-${i + 1}.png`, png);
@@ -109,11 +151,10 @@ async function submitClips(ctx: Ctx) {
     const img = s.imagePath!;
     const imageUrl =
       publicMediaUrl(img) ?? `data:image/png;base64,${(await getMedia(img)).toString("base64")}`;
-    s.videoRequestId = await submitVideo({
-      prompt: videoPrompt(s, ctx),
-      imageUrl,
-      seconds: Math.min(secs[i], config.clipSeconds),
-    });
+    const seconds = Math.min(secs[i], config.clipSeconds);
+    s.videoRequestId = await submitVideo({ prompt: videoPrompt(s, ctx), imageUrl, seconds });
+    ctx.metrics.grokClips++;
+    ctx.metrics.grokSeconds += seconds;
   }
 }
 
@@ -177,23 +218,33 @@ async function assemble(ctx: Ctx): Promise<string> {
 async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | "waiting" | "stop"> {
   const id = ctx.video.id;
 
+  const missing: Character[] = [];
   for (const c of ctx.cast) {
-    if (!(await mediaExists(c.sheet_path))) {
-      await setStep(id, `Création de la planche de ${c.name}`);
-      await makeSheet(c);
-      return "progress";
+    if (!sheetIsCurrent(c) || !(await mediaExists(c.sheet_path))) {
+      // Un autre process a peut-être déjà créé le portrait entre-temps.
+      const fresh = await one<Character>("SELECT * FROM characters WHERE id = $1", [c.id]);
+      if (fresh && sheetIsCurrent(fresh) && (await mediaExists(fresh.sheet_path))) c.sheet_path = fresh.sheet_path;
+      else missing.push(c);
     }
+  }
+  if (missing.length) {
+    await setStep(id, `Création des personnages (${missing.map((c) => c.name).join(", ")})`);
+    await timed(ctx.metrics, "Personnages", () => parallel(missing, 4, makeSheet));
+    ctx.metrics.sheets += missing.length;
+    await saveMetrics(ctx);
+    return "progress";
   }
 
   if (!ctx.plan) {
     await setStep(id, "Écriture du plan de la saison");
-    ctx.plan = await buildPlan({
+    ctx.plan = await timed(ctx.metrics, "Scénario", () => buildPlan({
       title: ctx.series.title,
       pitch: ctx.series.pitch,
       countryId: ctx.series.country,
       episodes: ctx.series.episodes_total,
       cast: ctx.cast,
-    });
+    }));
+    await saveMetrics(ctx);
     await sql("UPDATE series SET plan_json = $2, title = $3 WHERE id = $1", [
       ctx.series.id,
       JSON.stringify(ctx.plan),
@@ -204,14 +255,14 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
 
   if (!ctx.script) {
     await setStep(id, "Écriture du scénario");
-    ctx.script = await buildScript({
-      plan: ctx.plan,
+    ctx.script = await timed(ctx.metrics, "Scénario", () => buildScript({
+      plan: ctx.plan!,
       episode: ctx.video.episode,
       countryId: ctx.series.country,
       styleId: ctx.series.style,
       cast: ctx.cast,
       seconds: ctx.video.seconds,
-    });
+    }));
     if (!ctx.script.scenes?.length) throw new Error("Scénario vide");
     await saveScript(ctx, "Scénario prêt");
     return "progress";
@@ -220,11 +271,11 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
   const scenes = ctx.script.scenes;
   const n = scenes.length;
 
-  const noImage = scenes.findIndex((s) => !s.imagePath);
-  if (noImage >= 0) {
-    await setStep(id, `Image du plan ${noImage + 1}/${n}`);
-    await makeSceneImage(ctx, noImage);
-    await saveScript(ctx, `Image du plan ${noImage + 1}/${n}`);
+  const noImage = scenes.map((s, i) => (s.imagePath ? -1 : i)).filter((i) => i >= 0);
+  if (noImage.length) {
+    await setStep(id, `Images des plans (${n - noImage.length}/${n} prêtes)`);
+    await timed(ctx.metrics, "Images des plans", () => parallel(noImage, 4, (i) => makeSceneImage(ctx, i)));
+    await saveScript(ctx, `Images des plans (${n}/${n} prêtes)`);
     return "progress";
   }
 
@@ -233,18 +284,20 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
       const i = scenes.findIndex((s) => !s.clipPath);
       await setStep(id, `Animation du plan ${i + 1}/${n}`);
       const s = scenes[i];
-      const clip = await mockClip(await getMedia(s.imagePath!), sceneSeconds(ctx)[i], `Plan ${i + 1} · ${s.characters.join(" & ")}`);
+      const clip = await timed(ctx.metrics, "Animation", async () =>
+        mockClip(await getMedia(s.imagePath!), sceneSeconds(ctx)[i], `Plan ${i + 1} · ${s.characters.join(" & ")}`),
+      );
       s.clipPath = await putMedia(`videos/${id}/clip-${i + 1}.mp4`, clip);
       await saveScript(ctx, `Animation du plan ${i + 1}/${n}`);
       return "progress";
     }
     if (scenes.some((s) => !s.clipPath && !s.videoRequestId)) {
       await setStep(id, "Envoi des plans à l'animation");
-      await submitClips(ctx);
+      await timed(ctx.metrics, "Animation", () => submitClips(ctx));
       await saveScript(ctx, "Animation en cours");
       return "progress";
     }
-    const pending = await collectClips(ctx);
+    const pending = await timed(ctx.metrics, "Animation", () => collectClips(ctx));
     const ready = scenes.filter((s) => s.clipPath).length;
     await saveScript(ctx, `Animation en cours (${ready}/${n} plans prêts)`);
     return pending ? "waiting" : "progress";
@@ -253,8 +306,9 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
   // Le montage peut prendre 1-2 min : on ne le démarre qu'en début d'appel.
   if (elapsedMs > 30_000) return "stop";
   await setStep(id, "Montage final");
-  const out = await assemble(ctx);
-  await setStep(id, "Terminé", { status: "done", output_path: out });
+  const out = await timed(ctx.metrics, "Montage", () => assemble(ctx));
+  ctx.metrics.finishedAt = new Date().toISOString();
+  await setStep(id, "Terminé", { status: "done", output_path: out, metrics_json: JSON.stringify(ctx.metrics) });
   return "done";
 }
 
@@ -269,6 +323,7 @@ export async function work(id: number, budgetMs = WORK_BUDGET_MS): Promise<"done
   if (!video) return "busy";
 
   const start = Date.now();
+  let metricsRef: Metrics | undefined;
   try {
     const series = (await one<Series>("SELECT * FROM series WHERE id = $1", [video.series_id]))!;
     const castIds = JSON.parse(series.cast_json) as number[];
@@ -280,20 +335,27 @@ export async function work(id: number, budgetMs = WORK_BUDGET_MS): Promise<"done
       cast,
       plan: series.plan_json ? JSON.parse(series.plan_json) : null,
       script: video.script_json ? JSON.parse(video.script_json) : null,
+      metrics: video.metrics_json ? parseMetrics(video.metrics_json) : emptyMetrics(),
     };
+    ctx.metrics.startedAt ??= new Date(video.created_at).toISOString();
+    metricsRef = ctx.metrics;
 
     // On s'arrête avant 2 min écoulées pour qu'une unité longue (image, montage) tienne dans le budget.
     while (Date.now() - start < budgetMs / 2) {
-      const r = await step(ctx, Date.now() - start);
+      const r = await withMetrics(ctx.metrics, () => step(ctx, Date.now() - start));
       if (r === "done") return "done";
       if (r === "stop") break;
-      if (r === "waiting") await new Promise((res) => setTimeout(res, 8000));
+      if (r === "waiting") await timed(ctx.metrics, "Animation", () => new Promise((res) => setTimeout(res, 8000)));
     }
     return "more";
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[video ${id}]`, e);
-    await setStep(id, "Échec", { status: "failed", error: msg });
+    await setStep(id, "Échec", {
+      status: "failed",
+      error: msg,
+      metrics_json: metricsRef ? JSON.stringify(metricsRef) : null,
+    });
     await changeCredits(video.user_id, video.credits_cost, `Remboursement vidéo #${id}`);
     return "failed";
   } finally {

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireUser } from "@/lib/auth";
+import { isAdmin, requireUser } from "@/lib/auth";
+import { parseMetrics } from "@/lib/metrics";
+import { MetricsView } from "@/components/MetricsView";
 import { one, type Series, type Video } from "@/lib/db";
 import { FORMATS, type FormatId } from "@/lib/config";
 import { mediaUrl } from "@/lib/storage";
@@ -64,6 +66,10 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
             )}
           </div>
         </div>
+      )}
+
+      {isAdmin(user) && video.metrics_json && (
+        <MetricsView m={parseMetrics(video.metrics_json)} seconds={video.seconds} credits={video.credits_cost} />
       )}
 
       {script && (

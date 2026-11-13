@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS videos (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS metrics_json TEXT;
 CREATE TABLE IF NOT EXISTS credit_ledger (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -164,6 +165,9 @@ export type Video = {
   output_path: string | null;
   error: string | null;
   mock: boolean;
+  metrics_json: string | null;
+  created_at: Date;
+  updated_at: Date;
 };
 
 export type Character = {
