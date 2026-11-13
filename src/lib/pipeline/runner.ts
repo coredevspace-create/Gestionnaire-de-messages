@@ -119,26 +119,35 @@ Location: ${scene.setting}${country.id === "monde" ? "" : ` (${country.name})`}.
 Style: ${style.prompt}`;
 }
 
-/** Voix demandée à Grok — jamais d'exemples de mots (sinon Grok les prononce tels quels). */
-function voiceOf(countryId: string) {
-  const country = getCountry(countryId);
-  return country.id === "monde"
-    ? "natural spoken French from France, casual tone"
-    : `French spoken with a natural accent from ${country.name}`;
+/** Voix d'un personnage : celle définie dans le plan de la série, sinon déduite de son rôle. */
+function voiceFor(name: string, ctx: Ctx): string {
+  const v = ctx.plan?.voices;
+  const hit = v && (v[name] ?? Object.entries(v).find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1]);
+  if (hit) return hit;
+  const c = ctx.cast.find((x) => x.name === name);
+  const role = `${c?.role ?? ""} ${c?.look ?? ""}`.toLowerCase();
+  const female = /(m[eè]re|maman|fille|femme|[ée]pouse|soeur|sœur|directrice|reine|cliente|candidate|recruteuse|coll[eè]gue|woman|girl|mother|wife)/.test(role);
+  const old = /(old|grand|vieux|vieille|elderly|belle-m[eè]re|p[eè]re|papa|uncle|oncle|pdg|ceo)/.test(role);
+  return `${old ? "older" : "young"} ${female ? "woman" : "man"}, distinctive voice`;
 }
 
 function videoPrompt(scene: Scene, ctx: Ctx) {
-  const dialogue = scene.lines
-    .map((l) =>
-      /\(pens[ée]e\)/i.test(l.speaker)
-        ? `${l.speaker.replace(/\s*\(pens[ée]e\)/i, "")} (inner voice-over, mouth closed): "${l.text}"`
-        : `${l.speaker} (lips moving, facing camera): "${l.text}"`,
-    )
-    .join(" — then — ");
+  const line = scene.lines[0];
+  const thought = line && /\(pens[ée]e\)/i.test(line.speaker);
+  const speaker = line ? line.speaker.replace(/\s*\(pens[ée]e\)/i, "").trim() : "";
+  const others = scene.characters.filter((c) => c !== speaker);
+  const lang = getCountry(ctx.series.country).id === "monde" ? "French from France" : `French with a natural accent from ${getCountry(ctx.series.country).name}`;
+  const speech = !line
+    ? "Nobody speaks."
+    : thought
+      ? `${speaker}'s inner voice-over (mouth closed) says, slowly and clearly: "${line.text}"`
+      : `ONLY ${speaker} speaks, lips moving, slowly and clearly with natural pauses: "${line.text}"`;
   return `One continuous single shot, no cuts. ${scene.action}. Camera: ${scene.camera}.
-DIALOGUE — the ONLY words spoken in this clip, said clearly and completely, one voice at a time: ${dialogue}.
-Nobody says anything else: no extra words, no improvisation, no background chatter, no crowd voices. Silence before and after the line.
-Voice: ${voiceOf(ctx.series.country)}. Soft ambient sound only. No music, no subtitles, no text. Keep the characters identical to the first frame.`;
+${speech}
+${speaker ? `Voice of ${speaker}: ${voiceFor(speaker, ctx)}, speaking ${lang}.` : ""}
+${others.length ? `${others.join(" and ")} stay${others.length > 1 ? "" : "s"} completely silent with mouth closed, only reacting with facial expressions.` : ""}
+Exactly one voice in this clip. No other words, no improvisation, no background chatter. Soft ambient sound only. No music, no subtitles, no text.
+Keep the characters identical to the first frame.`;
 }
 
 function sceneSeconds(ctx: Ctx): number[] {

@@ -19,7 +19,12 @@ const VIRAL_FORMULA = `FORMULE VIRALE À APPLIQUER :
 Ton : familier et vivant, comme de vrais gens qui parlent, avec des mots simples. Toujours compréhensible.`;
 
 export type EpisodePlan = { n: number; title: string; summary: string; cliffhanger: string };
-export type SeriesPlan = { title: string; episodes: EpisodePlan[] };
+export type SeriesPlan = {
+  title: string;
+  episodes: EpisodePlan[];
+  /** Voix de chaque personnage (description en anglais), identique pour toute la série */
+  voices?: Record<string, string>;
+};
 
 export type Line = { speaker: string; text: string };
 export type Scene = {
@@ -73,7 +78,8 @@ export async function buildPlan(input: {
 Public : Afrique francophone (et diaspora). Ton : drôle, dramatique, rebondissements, punchlines.
 L'histoire doit être simple à suivre : un enjeu clair (argent, mariage, trahison, honte publique…), des personnages aux motivations évidentes.
 ${VIRAL_FORMULA}
-Réponds UNIQUEMENT en JSON : {"title": string, "episodes": [{"n": number, "title": string, "summary": string, "cliffhanger": string}]}.
+Réponds UNIQUEMENT en JSON : {"title": string, "voices": {"<nom exact du personnage>": "<voice description in English>"}, "episodes": [{"n": number, "title": string, "summary": string, "cliffhanger": string}]}.
+"voices" : une voix TRÈS distincte pour chaque personnage (sexe, âge, timbre, grave/aigu, rythme), ex. "elderly woman, low raspy authoritative voice, slow".
 Chaque épisode = UNE scène filmable : un lieu, deux personnages principaux face à face, un conflit concret (argent, accusation, humiliation, secret),
 et un fait précis révélé ou un geste fort à la fin. "summary" décrit cette scène en 2 phrases concrètes (qui, où, quoi, ce qui est révélé).
 Chaque épisode (sauf le dernier) finit sur un suspense fort et précis. Le dernier épisode finit sur une chute drôle ou choquante (pas "Fin").
@@ -92,18 +98,20 @@ ${castText(input.cast)}`,
 }
 
 /** Débit de parole visé (mots par seconde) : sert à remplir chaque plan sans blanc. */
-const WORDS_PER_SECOND = 2.4;
+const WORDS_PER_SECOND = 2.0;
 
 /** Exemple de référence (qualité attendue) montré au scénariste. */
-const GOLD_EXAMPLE = `EXEMPLE DE RÉFÉRENCE (20 s, 3 plans) — imite ce niveau de clarté et de tension, pas son histoire :
+const GOLD_EXAMPLE = `EXEMPLE DE RÉFÉRENCE (20 s, 4 plans, UNE réplique par plan) — imite ce niveau de clarté et de tension, pas son histoire :
 {"title":"Le test du patron","logline":"Accusé de vol par son patron, l'employé révèle que la vraie voleuse est la femme du patron.","mood":"suspense",
 "scenes":[
-{"characters":["M. Mangue","Kouassi"],"setting":"small shop office, cash register open and empty","action":"M. Mangue, furious, slams the empty cash box on the desk and points at Kouassi, who raises his hands, shocked","camera":"medium shot",
- "lines":[{"speaker":"M. Mangue","text":"Kouassi, il manque cinq cent mille francs dans ma caisse ce matin !"},{"speaker":"Kouassi","text":"Patron, je vous jure, je n'ai jamais touché à votre argent."}]},
-{"characters":["M. Mangue","Kouassi"],"setting":"same office","action":"M. Mangue shoves the register book with a signature in Kouassi's face; Kouassi looks at it, then his eyes narrow as he understands","camera":"close-up on Kouassi's face",
- "lines":[{"speaker":"M. Mangue","text":"Alors pourquoi ta signature est sur le registre, menteur ?"},{"speaker":"Kouassi (pensée)","text":"Quelqu'un a imité ma signature… et je sais exactement qui."}]},
-{"characters":["Kouassi","M. Mangue"],"setting":"same office","action":"Kouassi turns his phone screen toward M. Mangue: a video shows a woman taking the money; M. Mangue's face freezes in shock","camera":"over-the-shoulder shot on the phone screen",
- "lines":[{"speaker":"Kouassi","text":"Regardez la caméra du magasin, patron. C'est votre propre femme."},{"speaker":"M. Mangue","text":"Quoi ?! Fraise… ce n'est pas possible !"}]}]}`;
+{"characters":["M. Mangue","Kouassi"],"setting":"small shop office, cash box open and empty","action":"M. Mangue, furious, slams the empty cash box on the desk and points at Kouassi; Kouassi stays silent, shocked","camera":"medium shot on M. Mangue",
+ "lines":[{"speaker":"M. Mangue","text":"Kouassi, il manque cinq cent mille francs dans ma caisse !"}]},
+{"characters":["Kouassi","M. Mangue"],"setting":"same office","action":"Kouassi raises his hands, pleading; M. Mangue listens silently, arms crossed","camera":"medium close-up on Kouassi",
+ "lines":[{"speaker":"Kouassi","text":"Patron, je vous jure que je n'ai jamais touché à votre argent."}]},
+{"characters":["M. Mangue","Kouassi"],"setting":"same office","action":"M. Mangue shoves the register with a signature in Kouassi's face; Kouassi stares at it silently","camera":"medium shot",
+ "lines":[{"speaker":"M. Mangue","text":"Alors pourquoi ta signature est sur le registre, menteur ?"}]},
+{"characters":["Kouassi","M. Mangue"],"setting":"same office","action":"Kouassi turns his phone toward M. Mangue: a camera video shows a woman taking the money; M. Mangue freezes, mouth open, silent","camera":"close-up on Kouassi holding the phone",
+ "lines":[{"speaker":"Kouassi","text":"Regardez la caméra du magasin, patron. C'est votre propre femme."}]}]}`;
 
 export async function buildScript(input: {
   plan: SeriesPlan;
@@ -150,8 +158,10 @@ export async function buildScript(input: {
   const rules = `CONTRAINTES :
 - Exactement ${sceneCount} plans de ~${perShot.toFixed(0)} s, format vertical. ${world}
 - UNE SEULE SCÈNE : même lieu, temps continu, les mêmes 2 personnages principaux (un 3e au maximum, seulement s'il est indispensable).
-- DIALOGUE QUI REMPLIT LE TEMPS : chaque plan contient ${wordsMin} à ${wordsMax} mots de dialogue au total
-  (en général 2 répliques qui se répondent, chacune une phrase complète). Aucun plan muet, aucun blanc.
+- UNE SEULE RÉPLIQUE PAR PLAN, dite par UN SEUL personnage (le générateur vidéo ne sait faire qu'une voix par plan).
+  Les autres personnages du plan écoutent en silence (bouche fermée) et réagissent par le visage.
+  Les plans alternent les personnages qui parlent, comme un champ/contrechamp : A, puis B, puis A…
+- Chaque réplique fait ${wordsMin} à ${wordsMax} mots : une phrase complète, naturelle, qui se dit calmement en ~${perShot.toFixed(0)} s. Aucun plan muet.
 - Plan 1 : en une phrase, on comprend QUI accuse/menace QUI et POURQUOI (l'enjeu concret, avec un chiffre ou un objet précis).
 - Chaque réplique répond directement à la précédente (question → réponse, accusation → défense, menace → riposte).
 - Le dernier plan contient le RETOURNEMENT ou la RÉVÉLATION, dit clairement, avec la réaction du perdant. Rien de vague (« tu vas voir… »).
@@ -179,7 +189,7 @@ ${GOLD_EXAMPLE}`,
     brief,
     "writer",
   );
-  draft.scenes = normalizeNames(draft.scenes ?? [], input.cast);
+  draft.scenes = oneSpeakerPerShot(normalizeNames(draft.scenes ?? [], input.cast));
 
   // Relecture notée : si la note est faible, réécriture complète.
   try {
@@ -188,16 +198,16 @@ ${GOLD_EXAMPLE}`,
 Lis-le comme un spectateur qui ne connaît RIEN de l'histoire et n'a que les images et les répliques.
 Note sur 10 (champ "score") selon : clarté de la situation dès le plan 1, logique réplique après réplique,
 tension qui monte, retournement net et compréhensible à la fin, dialogue naturel, absence de blancs (${wordsMin}-${wordsMax} mots par plan).
-Liste les défauts dans "problems". Puis renvoie la version CORRIGÉE de l'épisode (même format, ${sceneCount} plans, mêmes noms) :
+Vérifie aussi : exactement UNE réplique par plan, d'un seul personnage, les orateurs alternent. Liste les défauts dans "problems". Puis renvoie la version CORRIGÉE de l'épisode (même format, ${sceneCount} plans, mêmes noms) :
 si la note est < 8, réécris franchement le dialogue pour atteindre 9/10 en gardant l'idée.
 ${rules}`,
       JSON.stringify(draft),
       "writer",
     );
-    if (review?.scenes?.length === sceneCount && review.scenes.every((sc) => sc.lines?.length)) {
+    if (review?.scenes?.length && Math.abs(review.scenes.length - sceneCount) <= 1 && review.scenes.every((sc) => sc.lines?.length)) {
       const { problems, score, ...rest } = review;
       console.log("[script doctor]", score, problems);
-      rest.scenes = normalizeNames(rest.scenes, input.cast);
+      rest.scenes = oneSpeakerPerShot(normalizeNames(rest.scenes, input.cast));
       return rest;
     }
   } catch (e) {
@@ -232,4 +242,39 @@ export function normalizeNames(scenes: Scene[], cast: Character[]): Scene[] {
     characters: [...new Set((s.characters ?? []).map(resolve))],
     lines: (s.lines ?? []).map((l) => ({ ...l, speaker: resolve(l.speaker) })),
   }));
+}
+
+/**
+ * Le générateur vidéo ne fait qu'une voix par plan : si un plan contient des répliques de
+ * plusieurs personnages, on le découpe en plusieurs plans (un orateur chacun, cadré sur lui).
+ */
+export function oneSpeakerPerShot(scenes: Scene[]): Scene[] {
+  const out: Scene[] = [];
+  for (const s of scenes) {
+    const lines = s.lines ?? [];
+    if (lines.length <= 1) {
+      out.push(s);
+      continue;
+    }
+    // Regroupe les répliques consécutives d'un même personnage.
+    const groups: Line[][] = [];
+    for (const l of lines) {
+      const last = groups[groups.length - 1];
+      if (last && last[0].speaker === l.speaker) last.push(l);
+      else groups.push([l]);
+    }
+    groups.forEach((g, i) => {
+      const who = g[0].speaker.replace(/\s*\(pens[ée]e\)/i, "").trim();
+      out.push({
+        ...s,
+        camera: i === 0 ? s.camera : `medium close-up on ${who}`,
+        action: i === 0 ? s.action : `${who} answers; the others listen silently. ${s.action}`,
+        lines: [{ speaker: g[0].speaker, text: g.map((l) => l.text).join(" ") }],
+        imagePath: undefined,
+        clipPath: undefined,
+        videoRequestId: undefined,
+      });
+    });
+  }
+  return out;
 }
