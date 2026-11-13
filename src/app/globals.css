@@ -73,7 +73,7 @@ h3 { font-size: 19px; font-weight: 700; }
   z-index: 50;
   backdrop-filter: saturate(160%) blur(16px);
   -webkit-backdrop-filter: saturate(160%) blur(16px);
-  background: rgba(10, 8, 9, 0.72);
+  background: rgba(10, 8, 9, 0.9);
   border-bottom: 1px solid var(--border);
 }
 .site-header .inner {
@@ -185,4 +185,6 @@ code { font-size: 13px; color: var(--text-2); word-break: break-word; }
   .header-actions { margin-left: auto; }
   main.app { padding: 20px 14px 50px; }
   .badge-mock { display: none; }
+  .hide-mobile { display: none; }
+  .credits-pill { padding: 6px 10px; font-size: 13px; }
 }

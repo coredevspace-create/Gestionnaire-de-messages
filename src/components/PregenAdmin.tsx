@@ -1,5 +1,5 @@
 import { one, sql, type Character } from "@/lib/db";
-import { getCountry } from "@/lib/catalog/countries";
+import { Flag } from "@/components/Flag";
 import { fruitLabel } from "@/lib/catalog/characters";
 import { pregenOrder, type BgJob } from "@/lib/pregen";
 import { sheetIsCurrent } from "@/lib/pipeline/runner";
@@ -61,7 +61,7 @@ export async function PregenAdmin() {
           <div key={c.id} className="stack" style={{ gap: 4 }}>
             <img className="preview" src={mediaUrl(c.sheet_path)!} alt={c.name} loading="lazy" />
             <span className="muted" style={{ fontSize: 12 }}>
-              {getCountry(c.country).flag} {c.name} · {fruitLabel(c.fruit)} · {c.role}
+              <Flag id={c.country} size={12} /> {c.name} · {fruitLabel(c.fruit)} · {c.role}
             </span>
           </div>
         ))}

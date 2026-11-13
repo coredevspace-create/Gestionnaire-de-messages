@@ -9,6 +9,7 @@ import { euros, PLANS, planPrice, videosFor, YEARLY_MONTHS_PAID, type PlanId } f
 import { FRUIT_EMOJI, showcasePortraits, showcaseVideos } from "@/lib/showcase";
 import { ROLES } from "@/lib/catalog/characters";
 import { BRAND } from "@/components/Logo";
+import { Flag } from "@/components/Flag";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,26 @@ const GRADIENTS = [
 function storyEmojis(s: Story) {
   const fruits = s.castSpec?.length ? s.castSpec.map((c) => c.fruit) : s.cast.map((r) => ROLES[r]?.fruit);
   return fruits.slice(0, 3).map((f) => FRUIT_EMOJI[f] ?? "🍊").join("");
+}
+
+/** Cartes de remplacement tant qu'il n'y a pas assez de vidéos en vitrine. */
+function fallbackShots(featured: Story[]) {
+  const img = (src: string, title: string, part: number) => (
+    <div key={src} className="lp-shot">
+      <img src={src} alt="" />
+      <div className="meta"><b>{title}</b><span className="part">Partie {part}</span></div>
+    </div>
+  );
+  return [
+    img("/visuals/peche-valise.jpg", "Le transfert qui n'arrive jamais", 1),
+    <Poster key={featured[0].id} s={featured[0]} g={GRADIENTS[0]} />,
+    <Poster key={featured[1].id} s={featured[1]} g={GRADIENTS[1]} />,
+    img("/visuals/coco.jpg", "L'oncle de Paris", 2),
+    <Poster key={featured[2].id} s={featured[2]} g={GRADIENTS[2]} />,
+    <Poster key={featured[3].id} s={featured[3]} g={GRADIENTS[3]} />,
+    img("/visuals/foule.jpg", "Le chantier fantôme", 3),
+    <Poster key={featured[4].id} s={featured[4]} g={GRADIENTS[1]} />,
+  ];
 }
 
 /** Affiche typographique d'une histoire (quand on n'a pas encore de vidéo en vitrine). */
@@ -140,35 +161,18 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
           <p>Accroche dès la première seconde, suspense à la fin, et l&apos;envie de voir la partie 2.</p>
         </div>
         <div className="lp-gallery">
-          {videos.length >= 4
-            ? videos.slice(0, 8).map((v) => (
-                <div key={v.id} className="lp-shot">
-                  <video src={v.src} poster={v.poster ?? undefined} muted loop playsInline preload="none" autoPlay />
-                  <div className="meta">
-                    <b>{v.title}</b>
-                    <span className="part">Partie {v.episode}</span>
-                  </div>
+          {[
+            ...videos.slice(0, 8).map((v) => (
+              <div key={`v${v.id}`} className="lp-shot">
+                <video src={v.src} poster={v.poster ?? undefined} muted loop playsInline preload="metadata" autoPlay />
+                <div className="meta">
+                  <b>{v.title}</b>
+                  <span className="part">Partie {v.episode}</span>
                 </div>
-              ))
-            : (
-              <>
-                <div className="lp-shot">
-                  <img src="/visuals/peche-valise.jpg" alt="" />
-                  <div className="meta"><b>Le transfert qui n&apos;arrive jamais</b><span className="part">Partie 1</span></div>
-                </div>
-                {featured.slice(0, 2).map((s, i) => <Poster key={s.id} s={s} g={GRADIENTS[i % 4]} />)}
-                <div className="lp-shot">
-                  <img src="/visuals/coco.jpg" alt="" />
-                  <div className="meta"><b>L&apos;oncle de Paris</b><span className="part">Partie 2</span></div>
-                </div>
-                {featured.slice(2, 4).map((s, i) => <Poster key={s.id} s={s} g={GRADIENTS[(i + 2) % 4]} />)}
-                <div className="lp-shot">
-                  <img src="/visuals/foule.jpg" alt="" />
-                  <div className="meta"><b>Le chantier fantôme</b><span className="part">Partie 3</span></div>
-                </div>
-                {featured.slice(4, 5).map((s) => <Poster key={s.id} s={s} g={GRADIENTS[1]} />)}
-              </>
-            )}
+              </div>
+            )),
+            ...fallbackShots(featured),
+          ].slice(0, 8)}
         </div>
       </section>
 
@@ -241,7 +245,7 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
         <div className="lp-worlds">
           <div className="lp-world">
             <img src="/visuals/foule.jpg" alt="" />
-            <div className="lp-flags">{africa.map((c) => c.flag).join(" ")}</div>
+            <div className="lp-flags">{africa.map((c) => <Flag key={c.id} id={c.id} size={22} />)}</div>
             <h3>Afrique</h3>
             <p>
               {africa.length} pays, décors, prénoms et façons de parler locaux. Belle-mère, co-épouses, diaspora, dot,

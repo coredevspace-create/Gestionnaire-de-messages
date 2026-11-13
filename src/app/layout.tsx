@@ -40,7 +40,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   <Link href="/abonnement" className="credits-pill">
                     ✦ {totalCredits(user)} crédits
                   </Link>
-                  <form action={logout}>
+                  <form action={logout} className="hide-mobile">
                     <button className="secondary btn-sm">Déconnexion</button>
                   </form>
                 </div>

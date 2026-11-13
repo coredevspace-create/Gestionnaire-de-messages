@@ -132,7 +132,7 @@
 .lp-world > * { position: relative; z-index: 1; }
 .lp-world h3 { font-size: 30px; margin-bottom: 6px; }
 .lp-world p { color: var(--text-2); margin: 0 0 14px; }
-.lp-flags { font-size: 26px; letter-spacing: 4px; }
+.lp-flags { display: flex; gap: 6px; flex-wrap: wrap; font-size: 26px; }
 
 /* Bento */
 .lp-bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }

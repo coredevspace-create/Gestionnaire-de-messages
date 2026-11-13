@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { sql, type Series, type Video } from "@/lib/db";
-import { getCountry } from "@/lib/catalog/countries";
+import { Flag } from "@/components/Flag";
 
 const STATUS: Record<string, string> = { queued: "⏳ en attente", running: "⚙️ en cours", done: "✅ prête", failed: "❌ échec" };
 
@@ -18,7 +18,7 @@ export default async function CreationsPage() {
       {series.map((s) => (
         <div key={s.id} id={`serie-${s.id}`} className="card stack">
           <strong>
-            {getCountry(s.country).flag} {s.title}
+            <Flag id={s.country} /> {s.title}
           </strong>
           <span className="muted">{s.episodes_total} épisode(s)</span>
           <ul>

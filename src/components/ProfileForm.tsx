@@ -22,7 +22,7 @@ export function ProfileForm({ user, submitLabel }: { user: User; submitLabel: st
         <select name="country" defaultValue={user.country}>
           {COUNTRIES.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.flag} {c.name}
+              {c.id === "monde" ? "🌍 " : ""}{c.name}
             </option>
           ))}
         </select>
