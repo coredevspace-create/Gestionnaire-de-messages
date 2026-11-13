@@ -14,7 +14,10 @@ export type Scene = {
   action: string;
   camera: string;
   lines: Line[];
+  /** Référence média (URL Blob ou chemin local) */
   imagePath?: string;
+  /** Requête Grok en cours */
+  videoRequestId?: string;
   clipPath?: string;
 };
 export type Script = { title: string; scenes: Scene[] };

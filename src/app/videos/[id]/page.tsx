@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { db, type Series, type Video } from "@/lib/db";
+import { one, type Series, type Video } from "@/lib/db";
 import { FORMATS, type FormatId } from "@/lib/config";
 import { mediaUrl } from "@/lib/storage";
 import type { Script } from "@/lib/ai/script";
@@ -11,22 +11,20 @@ import { nextEpisode, retry } from "@/app/actions";
 export default async function VideoPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const d = db();
-  const video = d.prepare("SELECT * FROM videos WHERE id = ? AND user_id = ?").get(Number(id), user.id) as
-    | Video
-    | undefined;
+  const video = await one<Video>("SELECT * FROM videos WHERE id = $1 AND user_id = $2", [Number(id) || 0, user.id]);
   if (!video) notFound();
-  const series = d.prepare("SELECT * FROM series WHERE id = ?").get(video.series_id) as Series;
+  const series = (await one<Series>("SELECT * FROM series WHERE id = $1", [video.series_id]))!;
   const script: Script | null = video.script_json ? JSON.parse(video.script_json) : null;
   const active = video.status === "queued" || video.status === "running";
-  const doneCount = (
-    d.prepare("SELECT COUNT(*) AS n FROM videos WHERE series_id = ? AND status != 'failed'").get(series.id) as { n: number }
-  ).n;
+  const doneCount = (await one<{ n: number }>(
+    "SELECT COUNT(*)::int AS n FROM videos WHERE series_id = $1 AND status != 'failed'",
+    [series.id],
+  ))!.n;
   const canNext = video.status === "done" && doneCount < series.episodes_total;
 
   return (
     <div className="stack">
-      <AutoRefresh active={active} />
+      <AutoRefresh active={active} tickUrl={`/api/videos/${video.id}/tick`} />
       <p className="muted">
         <Link href={`/creations#serie-${series.id}`}>{series.title}</Link> · épisode {video.episode}/{series.episodes_total} ·{" "}
         {FORMATS[video.format as FormatId]?.label}

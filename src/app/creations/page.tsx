@@ -1,15 +1,14 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { db, type Series, type Video } from "@/lib/db";
+import { sql, type Series, type Video } from "@/lib/db";
 import { getCountry } from "@/lib/catalog/countries";
 
 const STATUS: Record<string, string> = { queued: "⏳ en attente", running: "⚙️ en cours", done: "✅ prête", failed: "❌ échec" };
 
 export default async function CreationsPage() {
   const user = await requireUser();
-  const d = db();
-  const series = d.prepare("SELECT * FROM series WHERE user_id = ? ORDER BY id DESC").all(user.id) as Series[];
-  const videos = d.prepare("SELECT * FROM videos WHERE user_id = ? ORDER BY episode, id").all(user.id) as Video[];
+  const series = await sql<Series>("SELECT * FROM series WHERE user_id = $1 ORDER BY id DESC", [user.id]);
+  const videos = await sql<Video>("SELECT * FROM videos WHERE user_id = $1 ORDER BY episode, id", [user.id]);
 
   if (!series.length) return <p>Aucune création pour l&apos;instant. <Link href="/">Crée ta première vidéo</Link>.</p>;
 

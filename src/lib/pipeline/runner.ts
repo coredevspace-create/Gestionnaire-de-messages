@@ -1,86 +1,73 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { config, isMock } from "../config";
-import { changeCredits, db, type Character, type Series, type Video } from "../db";
+import { changeCredits, one, sql, type Character, type Series, type Video } from "../db";
 import { getCountry, getStyle } from "../catalog/countries";
 import { fruitLabel } from "../catalog/characters";
 import { editImage, generateImage } from "../ai/openai";
-import { imageToVideo } from "../ai/xai";
+import { checkVideo, submitVideo } from "../ai/xai";
 import { mockClip, mockImage } from "../ai/mock";
 import { buildPlan, buildScript, type Scene, type Script, type SeriesPlan } from "../ai/script";
-import { mediaPath, publicMediaUrl } from "../storage";
+import { getMedia, mediaExists, publicMediaUrl, putMedia } from "../storage";
 import { burnSubtitles, concatClips, normalizeClip, toSrtTime } from "./ffmpeg";
 
-// ---------- File d'attente en mémoire (MVP : un seul process) ----------
+/**
+ * Pipeline découpé en petites étapes pour tenir dans les fonctions Vercel (max 300 s).
+ * Chaque appel à `work()` :
+ *   1. prend un « bail » (lease) sur la vidéo pour qu'un seul process travaille dessus
+ *   2. avance étape par étape tant qu'il reste du temps
+ *   3. sauvegarde tout en base, rend la main, et renvoie "more" s'il reste du travail
+ * L'appelant relance alors un nouvel appel (voir kick.ts).
+ */
 
-const MAX_PARALLEL = 2;
-const g = globalThis as unknown as { __queue?: { pending: number[]; running: Set<number> } };
-const queue = (g.__queue ??= { pending: [], running: new Set() });
+export const WORK_BUDGET_MS = Number(process.env.WORK_BUDGET_MS || 240_000);
+const LEASE_SECONDS = 290;
 
-export function enqueueVideo(id: number) {
-  if (queue.running.has(id) || queue.pending.includes(id)) return;
-  queue.pending.push(id);
-  pump();
-}
+type Ctx = { video: Video; series: Series; cast: Character[]; script: Script | null; plan: SeriesPlan | null };
 
-function pump() {
-  while (queue.running.size < MAX_PARALLEL && queue.pending.length) {
-    const id = queue.pending.shift()!;
-    queue.running.add(id);
-    runVideo(id)
-      .catch((e) => console.error(`[video ${id}]`, e))
-      .finally(() => {
-        queue.running.delete(id);
-        pump();
-      });
-  }
-}
-
-/** Au démarrage du serveur : relance les vidéos interrompues. */
-export function resumePending() {
-  const rows = db()
-    .prepare("SELECT id FROM videos WHERE status IN ('queued','running') ORDER BY id")
-    .all() as { id: number }[];
-  rows.forEach((r) => enqueueVideo(r.id));
-}
-
-// ---------- Pipeline ----------
-
-function setStep(id: number, step: string, extra: Partial<Pick<Video, "status" | "script_json" | "output_path" | "error">> = {}) {
-  const fields = { step, ...extra };
+async function setStep(id: number, step: string, extra: Record<string, string | null> = {}) {
+  const fields: Record<string, string | null> = { step, ...extra };
   const keys = Object.keys(fields);
-  db()
-    .prepare(`UPDATE videos SET ${keys.map((k) => `${k} = ?`).join(", ")}, updated_at = datetime('now') WHERE id = ?`)
-    .run(...keys.map((k) => (fields as Record<string, string | null>)[k] ?? null), id);
+  await sql(
+    `UPDATE videos SET ${keys.map((k, i) => `${k} = $${i + 2}`).join(", ")}, updated_at = now() WHERE id = $1`,
+    [id, ...keys.map((k) => fields[k])],
+  );
+}
+
+async function saveScript(ctx: Ctx, step: string) {
+  await setStep(ctx.video.id, step, { script_json: JSON.stringify(ctx.script) });
 }
 
 function slug(s: string) {
-  return s.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+  return s.normalize("NFD").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
 }
 
-/** Planche de référence d'un personnage — générée UNE fois, réutilisée pour toujours. */
-export async function ensureSheet(c: Character): Promise<string> {
-  if (c.sheet_path && fs.existsSync(mediaPath(c.sheet_path))) return c.sheet_path;
-  const rel = path.join("characters", `${c.id}-${slug(c.name)}-${c.fruit}.png`);
-  const style = getStyle(c.style);
+// ---------- Unités de travail (chacune < ~2 min) ----------
+
+/** Planche de référence d'un personnage — générée UNE fois, partagée par tous. */
+async function makeSheet(c: Character): Promise<void> {
   const country = getCountry(c.country);
+  const style = getStyle(c.style);
+  let png: Buffer;
   if (isMock()) {
-    await mockImage(mediaPath(rel), `Planche · ${c.name}`, `${fruitLabel(c.fruit)} — ${c.role}\n${country.name}`, "landscape");
+    png = await mockImage(`Planche · ${c.name}`, `${fruitLabel(c.fruit)} — ${c.role}\n${country.name}`, "landscape");
   } else {
-    const prompt = `Character reference sheet (turnaround) of ONE character: ${c.name}, an anthropomorphic character whose head is a realistic ${c.fruit} with an expressive face, human body. ${c.look}. Setting culture: ${country.name}.
-Show the same character: front view, 3/4 view, side view, back view, plus 3 facial expressions (happy, angry, shocked). Plain light grey background, no text, consistent outfit and proportions. Style: ${style.prompt}`;
-    fs.mkdirSync(path.dirname(mediaPath(rel)), { recursive: true });
-    fs.writeFileSync(mediaPath(rel), await generateImage(prompt, "1536x1024"));
+    png = await generateImage(
+      `Character reference sheet (turnaround) of ONE character: ${c.name}, an anthropomorphic character whose head is a realistic ${c.fruit} with an expressive face, human body. ${c.look}. Culture: ${country.name}.
+Show the same character: front view, 3/4 view, side view, back view, plus 3 facial expressions (happy, angry, shocked). Plain light grey background, no text, consistent outfit and proportions. Style: ${style.prompt}`,
+      "1536x1024",
+    );
   }
-  db().prepare("UPDATE characters SET sheet_path = ? WHERE id = ?").run(rel, c.id);
-  c.sheet_path = rel;
-  return rel;
+  const ref = await putMedia(`characters/${c.id}-${slug(c.name)}-${c.fruit}.png`, png);
+  await sql("UPDATE characters SET sheet_path = $2 WHERE id = $1", [c.id, ref]);
+  c.sheet_path = ref;
 }
 
-function scenePrompt(scene: Scene, cast: Character[], series: Series) {
-  const style = getStyle(series.style);
-  const country = getCountry(series.country);
-  const who = cast
+function scenePrompt(scene: Scene, ctx: Ctx) {
+  const style = getStyle(ctx.series.style);
+  const country = getCountry(ctx.series.country);
+  const who = ctx.cast
     .filter((c) => scene.characters.includes(c.name))
     .map((c) => `${c.name} (the ${c.fruit}-headed character from the reference sheet)`)
     .join(", ");
@@ -88,147 +75,228 @@ function scenePrompt(scene: Scene, cast: Character[], series: Series) {
 Location: ${scene.setting} (${country.name}). Action: ${scene.action}. Camera: ${scene.camera}. No text, no subtitles. Style: ${style.prompt}`;
 }
 
-function videoPrompt(scene: Scene, series: Series) {
-  const country = getCountry(series.country);
+function videoPrompt(scene: Scene, ctx: Ctx) {
+  const country = getCountry(ctx.series.country);
   const dialogue = scene.lines.map((l) => `${l.speaker} says: "${l.text}"`).join(" Then ");
   return `${scene.action}. Camera: ${scene.camera}. The characters talk with lip-sync and expressive gestures. ${dialogue}. Speech in ${country.accent}. Ambient sound of ${country.setting}. No music, no subtitles, keep characters identical to the first frame.`;
 }
 
-async function sceneImage(scene: Scene, i: number, video: Video, series: Series, cast: Character[]): Promise<string> {
-  const rel = path.join("videos", String(video.id), `scene-${i + 1}.png`);
-  if (isMock()) {
-    await mockImage(mediaPath(rel), `Plan ${i + 1}`, `${scene.characters.join(" & ")}\n\n${scene.action}`);
-  } else {
-    const inScene = cast.filter((c) => scene.characters.includes(c.name));
-    const refs = (inScene.length ? inScene : cast).slice(0, 4).map((c) => mediaPath(c.sheet_path!));
-    fs.mkdirSync(path.dirname(mediaPath(rel)), { recursive: true });
-    fs.writeFileSync(mediaPath(rel), await editImage(scenePrompt(scene, cast, series), refs, "1024x1536"));
-  }
-  return rel;
+function sceneSeconds(ctx: Ctx): number[] {
+  const n = ctx.script!.scenes.length;
+  const total = ctx.video.seconds;
+  const base = Math.floor(total / n);
+  return ctx.script!.scenes.map((_, i) => (i < total - base * n ? base + 1 : base));
 }
 
-async function sceneClip(scene: Scene, i: number, video: Video, series: Series, seconds: number): Promise<string> {
-  const rel = path.join("videos", String(video.id), `clip-${i + 1}.mp4`);
-  const imgAbs = mediaPath(scene.imagePath!);
+async function makeSceneImage(ctx: Ctx, i: number) {
+  const scene = ctx.script!.scenes[i];
+  let png: Buffer;
   if (isMock()) {
-    await mockClip(imgAbs, mediaPath(rel), seconds, `Plan ${i + 1} · ${scene.characters.join(" & ")}`);
+    png = await mockImage(`Plan ${i + 1}`, `${scene.characters.join(" & ")}\n\n${scene.action}`);
   } else {
+    const inScene = ctx.cast.filter((c) => scene.characters.includes(c.name));
+    const refs = await Promise.all((inScene.length ? inScene : ctx.cast).slice(0, 4).map((c) => getMedia(c.sheet_path!)));
+    png = await editImage(scenePrompt(scene, ctx), refs, "1024x1536");
+  }
+  scene.imagePath = await putMedia(`videos/${ctx.video.id}/scene-${i + 1}.png`, png);
+}
+
+async function submitClips(ctx: Ctx) {
+  const secs = sceneSeconds(ctx);
+  for (let i = 0; i < ctx.script!.scenes.length; i++) {
+    const s = ctx.script!.scenes[i];
+    if (s.clipPath || s.videoRequestId) continue;
+    const img = s.imagePath!;
     const imageUrl =
-      publicMediaUrl(scene.imagePath!) ?? `data:image/png;base64,${fs.readFileSync(imgAbs).toString("base64")}`;
-    const buf = await imageToVideo({ prompt: videoPrompt(scene, series), imageUrl, seconds });
-    fs.writeFileSync(mediaPath(rel), buf);
-  }
-  return rel;
-}
-
-async function assemble(video: Video, script: Script, sceneSeconds: number[]): Promise<string> {
-  const dir = mediaPath(path.join("videos", String(video.id)));
-  const normalized: string[] = [];
-  for (let i = 0; i < script.scenes.length; i++) {
-    const out = path.join(dir, `norm-${i + 1}.mp4`);
-    await normalizeClip(mediaPath(script.scenes[i].clipPath!), out, sceneSeconds[i]);
-    normalized.push(out);
-  }
-  const joined = path.join(dir, "joined.mp4");
-  await concatClips(normalized, joined);
-
-  // Sous-titres : chaque réplique occupe une part égale de son plan.
-  let t = 0;
-  let n = 1;
-  const srt: string[] = [];
-  script.scenes.forEach((s, i) => {
-    const d = sceneSeconds[i];
-    const per = d / Math.max(1, s.lines.length);
-    s.lines.forEach((l, j) => {
-      srt.push(`${n++}\n${toSrtTime(t + j * per + 0.1)} --> ${toSrtTime(t + (j + 1) * per - 0.1)}\n${l.text}\n`);
+      publicMediaUrl(img) ?? `data:image/png;base64,${(await getMedia(img)).toString("base64")}`;
+    s.videoRequestId = await submitVideo({
+      prompt: videoPrompt(s, ctx),
+      imageUrl,
+      seconds: Math.min(secs[i], config.clipSeconds),
     });
-    t += d;
-  });
-  const srtPath = path.join(dir, "subs.srt");
-  fs.writeFileSync(srtPath, srt.join("\n"));
-
-  const finalRel = path.join("videos", String(video.id), "final.mp4");
-  await burnSubtitles(joined, srtPath, mediaPath(finalRel));
-  [...normalized, joined].forEach((f) => fs.rmSync(f, { force: true }));
-  return finalRel;
+  }
 }
 
-export async function runVideo(id: number) {
-  const d = db();
-  const video = d.prepare("SELECT * FROM videos WHERE id = ?").get(id) as Video | undefined;
-  if (!video || video.status === "done" || video.status === "failed") return;
-  const series = d.prepare("SELECT * FROM series WHERE id = ?").get(video.series_id) as Series;
-  const castIds = JSON.parse(series.cast_json) as number[];
-  const cast = castIds.map((cid) => d.prepare("SELECT * FROM characters WHERE id = ?").get(cid) as Character);
+/** Vérifie les clips Grok en cours. Renvoie true si au moins un est encore en attente. */
+async function collectClips(ctx: Ctx): Promise<boolean> {
+  let pending = false;
+  for (let i = 0; i < ctx.script!.scenes.length; i++) {
+    const s = ctx.script!.scenes[i];
+    if (s.clipPath || !s.videoRequestId) continue;
+    const r = await checkVideo(s.videoRequestId);
+    if (r.state === "pending") pending = true;
+    else if (r.state === "failed") throw new Error(`Plan ${i + 1} : ${r.error}`);
+    else s.clipPath = await putMedia(`videos/${ctx.video.id}/clip-${i + 1}.mp4`, r.data);
+  }
+  return pending;
+}
 
+async function assemble(ctx: Ctx): Promise<string> {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `fs-video-${ctx.video.id}-`));
   try {
-    setStep(id, "Préparation des personnages", { status: "running" });
-    for (const c of cast) await ensureSheet(c);
+    const secs = sceneSeconds(ctx);
+    const normalized: string[] = [];
+    for (let i = 0; i < ctx.script!.scenes.length; i++) {
+      const raw = path.join(dir, `raw-${i}.mp4`);
+      fs.writeFileSync(raw, await getMedia(ctx.script!.scenes[i].clipPath!));
+      const out = path.join(dir, `norm-${i}.mp4`);
+      await normalizeClip(raw, out, secs[i]);
+      normalized.push(out);
+    }
+    const joined = path.join(dir, "joined.mp4");
+    await concatClips(normalized, joined);
 
-    // Plan de la série (une fois pour toute la saison)
-    let plan: SeriesPlan;
-    if (series.plan_json) plan = JSON.parse(series.plan_json);
-    else {
-      setStep(id, "Écriture du plan de la saison");
-      plan = await buildPlan({
-        title: series.title,
-        pitch: series.pitch,
-        countryId: series.country,
-        episodes: series.episodes_total,
-        cast,
+    // Sous-titres : chaque réplique occupe une part égale de son plan.
+    let t = 0;
+    let n = 1;
+    const srt: string[] = [];
+    ctx.script!.scenes.forEach((s, i) => {
+      const per = secs[i] / Math.max(1, s.lines.length);
+      s.lines.forEach((l, j) => {
+        srt.push(`${n++}\n${toSrtTime(t + j * per + 0.1)} --> ${toSrtTime(t + (j + 1) * per - 0.1)}\n${l.text}\n`);
       });
-      d.prepare("UPDATE series SET plan_json = ?, title = ? WHERE id = ?").run(
-        JSON.stringify(plan),
-        plan.title || series.title,
-        series.id,
-      );
-    }
+      t += secs[i];
+    });
+    const srtPath = path.join(dir, "subs.srt");
+    fs.writeFileSync(srtPath, srt.join("\n"));
 
-    // Script de l'épisode (sauvegardé pour reprendre en cas de crash)
-    let script: Script;
-    if (video.script_json) script = JSON.parse(video.script_json);
-    else {
-      setStep(id, "Écriture du scénario");
-      script = await buildScript({
-        plan,
-        episode: video.episode,
-        countryId: series.country,
-        styleId: series.style,
-        cast,
-        seconds: video.seconds,
-      });
-      if (!script.scenes?.length) throw new Error("Scénario vide");
-      setStep(id, "Scénario prêt", { script_json: JSON.stringify(script) });
-    }
+    const final = path.join(dir, "final.mp4");
+    await burnSubtitles(joined, srtPath, final);
+    return putMedia(`videos/${ctx.video.id}/final.mp4`, fs.readFileSync(final));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
 
-    // Durée de chaque plan : on répartit la durée totale.
-    const n = script.scenes.length;
-    const base = Math.floor(video.seconds / n);
-    const sceneSeconds = script.scenes.map((_, i) => (i < video.seconds - base * n ? base + 1 : base));
+/**
+ * Fait UNE unité de travail. Renvoie :
+ *  - "done" : vidéo terminée
+ *  - "progress" : une étape a avancé
+ *  - "waiting" : on attend Grok
+ */
+async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | "waiting" | "stop"> {
+  const id = ctx.video.id;
 
-    for (let i = 0; i < n; i++) {
-      const s = script.scenes[i];
-      if (!s.imagePath || !fs.existsSync(mediaPath(s.imagePath))) {
-        setStep(id, `Image du plan ${i + 1}/${n}`);
-        s.imagePath = await sceneImage(s, i, video, series, cast);
-        setStep(id, `Image du plan ${i + 1}/${n}`, { script_json: JSON.stringify(script) });
-      }
+  for (const c of ctx.cast) {
+    if (!(await mediaExists(c.sheet_path))) {
+      await setStep(id, `Création de la planche de ${c.name}`);
+      await makeSheet(c);
+      return "progress";
     }
-    for (let i = 0; i < n; i++) {
-      const s = script.scenes[i];
-      if (!s.clipPath || !fs.existsSync(mediaPath(s.clipPath))) {
-        setStep(id, `Animation du plan ${i + 1}/${n}`);
-        s.clipPath = await sceneClip(s, i, video, series, Math.min(sceneSeconds[i], config.clipSeconds));
-        setStep(id, `Animation du plan ${i + 1}/${n}`, { script_json: JSON.stringify(script) });
-      }
-    }
+  }
 
-    setStep(id, "Montage final");
-    const out = await assemble(video, script, sceneSeconds);
-    setStep(id, "Terminé", { status: "done", output_path: out });
+  if (!ctx.plan) {
+    await setStep(id, "Écriture du plan de la saison");
+    ctx.plan = await buildPlan({
+      title: ctx.series.title,
+      pitch: ctx.series.pitch,
+      countryId: ctx.series.country,
+      episodes: ctx.series.episodes_total,
+      cast: ctx.cast,
+    });
+    await sql("UPDATE series SET plan_json = $2, title = $3 WHERE id = $1", [
+      ctx.series.id,
+      JSON.stringify(ctx.plan),
+      ctx.plan.title || ctx.series.title,
+    ]);
+    return "progress";
+  }
+
+  if (!ctx.script) {
+    await setStep(id, "Écriture du scénario");
+    ctx.script = await buildScript({
+      plan: ctx.plan,
+      episode: ctx.video.episode,
+      countryId: ctx.series.country,
+      styleId: ctx.series.style,
+      cast: ctx.cast,
+      seconds: ctx.video.seconds,
+    });
+    if (!ctx.script.scenes?.length) throw new Error("Scénario vide");
+    await saveScript(ctx, "Scénario prêt");
+    return "progress";
+  }
+
+  const scenes = ctx.script.scenes;
+  const n = scenes.length;
+
+  const noImage = scenes.findIndex((s) => !s.imagePath);
+  if (noImage >= 0) {
+    await setStep(id, `Image du plan ${noImage + 1}/${n}`);
+    await makeSceneImage(ctx, noImage);
+    await saveScript(ctx, `Image du plan ${noImage + 1}/${n}`);
+    return "progress";
+  }
+
+  if (scenes.some((s) => !s.clipPath)) {
+    if (isMock()) {
+      const i = scenes.findIndex((s) => !s.clipPath);
+      await setStep(id, `Animation du plan ${i + 1}/${n}`);
+      const s = scenes[i];
+      const clip = await mockClip(await getMedia(s.imagePath!), sceneSeconds(ctx)[i], `Plan ${i + 1} · ${s.characters.join(" & ")}`);
+      s.clipPath = await putMedia(`videos/${id}/clip-${i + 1}.mp4`, clip);
+      await saveScript(ctx, `Animation du plan ${i + 1}/${n}`);
+      return "progress";
+    }
+    if (scenes.some((s) => !s.clipPath && !s.videoRequestId)) {
+      await setStep(id, "Envoi des plans à l'animation");
+      await submitClips(ctx);
+      await saveScript(ctx, "Animation en cours");
+      return "progress";
+    }
+    const pending = await collectClips(ctx);
+    const ready = scenes.filter((s) => s.clipPath).length;
+    await saveScript(ctx, `Animation en cours (${ready}/${n} plans prêts)`);
+    return pending ? "waiting" : "progress";
+  }
+
+  // Le montage peut prendre 1-2 min : on ne le démarre qu'en début d'appel.
+  if (elapsedMs > 30_000) return "stop";
+  await setStep(id, "Montage final");
+  const out = await assemble(ctx);
+  await setStep(id, "Terminé", { status: "done", output_path: out });
+  return "done";
+}
+
+/** Fait avancer une vidéo pendant au plus `budgetMs`. */
+export async function work(id: number, budgetMs = WORK_BUDGET_MS): Promise<"done" | "more" | "busy" | "failed"> {
+  const video = await one<Video>(
+    `UPDATE videos SET lease_until = now() + ($2 || ' seconds')::interval, status = 'running'
+     WHERE id = $1 AND status IN ('queued','running') AND (lease_until IS NULL OR lease_until < now())
+     RETURNING *`,
+    [id, String(LEASE_SECONDS)],
+  );
+  if (!video) return "busy";
+
+  const start = Date.now();
+  try {
+    const series = (await one<Series>("SELECT * FROM series WHERE id = $1", [video.series_id]))!;
+    const castIds = JSON.parse(series.cast_json) as number[];
+    const cast: Character[] = [];
+    for (const cid of castIds) cast.push((await one<Character>("SELECT * FROM characters WHERE id = $1", [cid]))!);
+    const ctx: Ctx = {
+      video,
+      series,
+      cast,
+      plan: series.plan_json ? JSON.parse(series.plan_json) : null,
+      script: video.script_json ? JSON.parse(video.script_json) : null,
+    };
+
+    // On s'arrête avant 2 min écoulées pour qu'une unité longue (image, montage) tienne dans le budget.
+    while (Date.now() - start < budgetMs / 2) {
+      const r = await step(ctx, Date.now() - start);
+      if (r === "done") return "done";
+      if (r === "stop") break;
+      if (r === "waiting") await new Promise((res) => setTimeout(res, 8000));
+    }
+    return "more";
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    setStep(id, "Échec", { status: "failed", error: msg });
-    changeCredits(video.user_id, video.credits_cost, `Remboursement vidéo #${id}`);
+    console.error(`[video ${id}]`, e);
+    await setStep(id, "Échec", { status: "failed", error: msg });
+    await changeCredits(video.user_id, video.credits_cost, `Remboursement vidéo #${id}`);
+    return "failed";
+  } finally {
+    await sql("UPDATE videos SET lease_until = NULL WHERE id = $1", [id]);
   }
 }

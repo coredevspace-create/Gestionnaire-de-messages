@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { config } from "@/lib/config";
-import { changeCredits, db } from "@/lib/db";
+import { changeCredits, one, sql } from "@/lib/db";
 import { createSession, destroySession, hashPassword, isAdmin, requireUser, verifyPassword } from "@/lib/auth";
 import { COUNTRIES } from "@/lib/catalog/countries";
 import { createNextEpisode, createSeriesAndFirstVideo, retryVideo, UserError } from "@/lib/service";
@@ -19,20 +19,20 @@ export async function signup(_: FormState, fd: FormData): Promise<FormState> {
   const password = str(fd, "password");
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: "Email invalide." };
   if (password.length < 8) return { error: "Mot de passe : 8 caractères minimum." };
-  const d = db();
-  if (d.prepare("SELECT 1 FROM users WHERE email = ?").get(email)) return { error: "Cet email est déjà utilisé." };
-  const res = d.prepare("INSERT INTO users (email, password_hash) VALUES (?, ?)").run(email, hashPassword(password));
-  const id = Number(res.lastInsertRowid);
-  if (config.starterCredits > 0) changeCredits(id, config.starterCredits, "Crédits de bienvenue");
+  const row = await one<{ id: number }>(
+    "INSERT INTO users (email, password_hash) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING RETURNING id",
+    [email, hashPassword(password)],
+  );
+  if (!row) return { error: "Cet email est déjà utilisé." };
+  const id = row.id;
+  if (config.starterCredits > 0) await changeCredits(id, config.starterCredits, "Crédits de bienvenue");
   await createSession(id);
   redirect("/onboarding");
 }
 
 export async function login(_: FormState, fd: FormData): Promise<FormState> {
   const email = str(fd, "email").toLowerCase();
-  const row = db().prepare("SELECT id, password_hash FROM users WHERE email = ?").get(email) as
-    | { id: number; password_hash: string }
-    | undefined;
+  const row = await one<{ id: number; password_hash: string }>("SELECT id, password_hash FROM users WHERE email = $1", [email]);
   if (!row || !verifyPassword(str(fd, "password"), row.password_hash)) {
     return { error: "Email ou mot de passe incorrect." };
   }
@@ -49,10 +49,12 @@ export async function logout() {
 export async function saveProfile(fd: FormData) {
   const user = await requireUser({ allowNotOnboarded: true });
   const country = str(fd, "country");
-  const monetized = str(fd, "monetized") === "1" ? 1 : 0;
-  db()
-    .prepare("UPDATE users SET onboarded = 1, monetized = ?, country = ? WHERE id = ?")
-    .run(monetized, COUNTRIES.some((c) => c.id === country) ? country : "ci", user.id);
+  const monetized = str(fd, "monetized") === "1";
+  await sql("UPDATE users SET onboarded = true, monetized = $1, country = $2 WHERE id = $3", [
+    monetized,
+    COUNTRIES.some((c) => c.id === country) ? country : "ci",
+    user.id,
+  ]);
   redirect("/");
 }
 
@@ -60,7 +62,7 @@ export async function createVideo(_: FormState, fd: FormData): Promise<FormState
   const user = await requireUser();
   let id: number;
   try {
-    id = createSeriesAndFirstVideo(user, {
+    id = await createSeriesAndFirstVideo(user, {
       storyId: str(fd, "storyId") || undefined,
       pitch: str(fd, "pitch") || undefined,
       formatId: str(fd, "format") || undefined,
@@ -78,7 +80,7 @@ export async function nextEpisode(_: FormState, fd: FormData): Promise<FormState
   const user = await requireUser();
   let id: number;
   try {
-    id = createNextEpisode(user, Number(str(fd, "seriesId")));
+    id = await createNextEpisode(user, Number(str(fd, "seriesId")));
   } catch (e) {
     if (e instanceof UserError) return { error: e.message };
     throw e;
@@ -90,7 +92,7 @@ export async function retry(_: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
   let id: number;
   try {
-    id = retryVideo(user, Number(str(fd, "videoId")));
+    id = await retryVideo(user, Number(str(fd, "videoId")));
   } catch (e) {
     if (e instanceof UserError) return { error: e.message };
     throw e;
@@ -103,7 +105,7 @@ export async function adminGrantCredits(fd: FormData) {
   if (!isAdmin(user)) redirect("/");
   const email = str(fd, "email").toLowerCase();
   const amount = Math.trunc(Number(str(fd, "amount")));
-  const target = db().prepare("SELECT id FROM users WHERE email = ?").get(email) as { id: number } | undefined;
-  if (target && amount) changeCredits(target.id, amount, `Ajout admin par ${user.email}`);
+  const target = await one<{ id: number }>("SELECT id FROM users WHERE email = $1", [email]);
+  if (target && amount) await changeCredits(target.id, amount, `Ajout admin par ${user.email}`);
   revalidatePath("/admin");
 }

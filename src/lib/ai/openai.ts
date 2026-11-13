@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import { config } from "../config";
 
 const BASE = "https://api.openai.com/v1";
@@ -55,16 +53,13 @@ export async function generateImage(prompt: string, size = "1536x1024"): Promise
 }
 
 /** Génère une image en s'appuyant sur des images de référence (planches des personnages). */
-export async function editImage(prompt: string, refAbsPaths: string[], size = "1024x1536"): Promise<Buffer> {
+export async function editImage(prompt: string, refs: Buffer[], size = "1024x1536"): Promise<Buffer> {
   const form = new FormData();
   form.append("model", config.openaiImageModel);
   form.append("prompt", prompt);
   form.append("size", size);
   form.append("n", "1");
-  for (const p of refAbsPaths) {
-    const blob = new Blob([fs.readFileSync(p)], { type: "image/png" });
-    form.append("image[]", blob, path.basename(p));
-  }
+  refs.forEach((buf, i) => form.append("image[]", new Blob([new Uint8Array(buf)], { type: "image/png" }), `ref-${i}.png`));
   const res = await fetch(`${BASE}/images/edits`, { method: "POST", headers: headers(), body: form });
   await check(res, "image (références)");
   return toBuffer((await res.json()) as ImageResponse);

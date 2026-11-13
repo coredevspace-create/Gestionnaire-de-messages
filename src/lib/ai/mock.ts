@@ -1,11 +1,11 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { ffmpeg, filterPath, fontFile } from "../pipeline/ffmpeg";
+import { ffmpeg, FONT_NAME, subtitlesFilter, toSrtTime } from "../pipeline/ffmpeg";
 
 /**
- * Mode SIMULATION : produit des images et des clips factices avec ffmpeg
- * pour tester tout le parcours sans payer OpenAI ni xAI.
+ * Mode SIMULATION : images et clips factices (ffmpeg) pour tester tout le parcours
+ * sans payer OpenAI ni xAI. Le texte est rendu via libass (dispo dans ffmpeg-static).
  */
 
 const COLORS = ["0xF59E0B", "0xEF4444", "0x10B981", "0x8B5CF6", "0x3B82F6", "0xEC4899", "0x14B8A6"];
@@ -16,55 +16,53 @@ function colorFor(seed: string) {
   return COLORS[h % COLORS.length];
 }
 
-function wrap(text: string, width: number): string {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let cur = "";
-  for (const w of words) {
-    if ((cur + " " + w).trim().length > width) {
-      if (cur) lines.push(cur);
-      cur = w;
-    } else cur = (cur + " " + w).trim();
+function tmpDir() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), "fs-mock-"));
+}
+
+function srtFile(dir: string, text: string, seconds: number) {
+  const f = path.join(dir, "t.srt");
+  fs.writeFileSync(f, `1\n${toSrtTime(0)} --> ${toSrtTime(seconds)}\n${text}\n`);
+  return f;
+}
+
+const STYLE = (size: number, align: number) =>
+  `FontName=${FONT_NAME},FontSize=${size},Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Alignment=${align},MarginV=40`;
+
+export async function mockImage(title: string, body: string, size: "portrait" | "landscape" = "portrait"): Promise<Buffer> {
+  const dir = tmpDir();
+  try {
+    const s = size === "portrait" ? "720x1280" : "1280x720";
+    const out = path.join(dir, "out.png");
+    const srt = srtFile(dir, `[SIMULATION] ${title}\\N\\N${body.replace(/\n/g, "\\N")}`, 10);
+    await ffmpeg([
+      "-f", "lavfi", "-i", `color=c=${colorFor(title)}:s=${s}:d=1`,
+      "-vf", subtitlesFilter(srt, STYLE(size === "portrait" ? 14 : 18, 10)),
+      "-frames:v", "1", out,
+    ]);
+    return fs.readFileSync(out);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
-  if (cur) lines.push(cur);
-  return lines.join("\n");
 }
 
-function textFilter(text: string, size: number, y: string, width: number) {
-  const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "fs-")), "t.txt");
-  fs.writeFileSync(tmp, wrap(text, width));
-  const font = fontFile();
-  return (
-    `drawtext=${font ? `fontfile='${filterPath(font)}':` : ""}textfile='${filterPath(tmp)}':` +
-    `fontsize=${size}:fontcolor=white:borderw=3:bordercolor=black:line_spacing=10:x=(w-text_w)/2:y=${y}`
-  );
-}
-
-export async function mockImage(outAbs: string, title: string, body: string, size: "portrait" | "landscape" = "portrait") {
-  fs.mkdirSync(path.dirname(outAbs), { recursive: true });
-  const s = size === "portrait" ? "720x1280" : "1280x720";
-  const filters = [
-    textFilter("[SIMULATION] " + title, size === "portrait" ? 40 : 44, "80", size === "portrait" ? 24 : 40),
-    textFilter(body, 28, "(h-text_h)/2", size === "portrait" ? 36 : 70),
-  ].join(",");
-  await ffmpeg(["-f", "lavfi", "-i", `color=c=${colorFor(title)}:s=${s}`, "-vf", filters, "-frames:v", "1", outAbs]);
-}
-
-export async function mockClip(imageAbs: string, outAbs: string, seconds: number, caption: string) {
-  fs.mkdirSync(path.dirname(outAbs), { recursive: true });
-  const vf = [
-    "scale=720:1280",
-    // léger zoom pour simuler le mouvement
-    `zoompan=z='min(zoom+0.0015,1.15)':d=${seconds * 30}:s=720x1280:fps=30`,
-    textFilter(caption || "…", 30, "h-260", 34),
-    "format=yuv420p",
-  ].join(",");
-  await ffmpeg([
-    "-loop", "1", "-i", imageAbs,
-    "-f", "lavfi", "-i", "sine=frequency=220:sample_rate=44100",
-    "-t", String(seconds),
-    "-vf", vf,
-    "-af", "volume=0.05",
-    "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", "-shortest", outAbs,
-  ]);
+export async function mockClip(image: Buffer, seconds: number, caption: string): Promise<Buffer> {
+  const dir = tmpDir();
+  try {
+    const img = path.join(dir, "in.png");
+    const out = path.join(dir, "out.mp4");
+    fs.writeFileSync(img, image);
+    const srt = srtFile(dir, caption, seconds);
+    await ffmpeg([
+      "-loop", "1", "-i", img,
+      "-f", "lavfi", "-i", "sine=frequency=220:sample_rate=44100",
+      "-t", String(seconds),
+      "-vf", `scale=720:1280,zoompan=z='min(zoom+0.0015,1.15)':d=${seconds * 30}:s=720x1280:fps=30,${subtitlesFilter(srt, STYLE(12, 6))},format=yuv420p`,
+      "-af", "volume=0.05",
+      "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", "-shortest", out,
+    ]);
+    return fs.readFileSync(out);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }

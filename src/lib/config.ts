@@ -1,7 +1,10 @@
 import path from "node:path";
 
 export const config = {
-  dataDir: path.resolve(/* turbopackIgnore: true */ process.cwd(), process.env.DATA_DIR || "./data"),
+  dataDir: path.resolve(
+    /* turbopackIgnore: true */ process.cwd(),
+    process.env.DATA_DIR || (process.env.VERCEL ? "/tmp/fruitstory" : "./data"),
+  ),
   openaiKey: process.env.OPENAI_API_KEY || "",
   xaiKey: process.env.XAI_API_KEY || "",
   openaiTextModel: process.env.OPENAI_TEXT_MODEL || "gpt-5-mini",

@@ -32,13 +32,20 @@ export function Submit({ children, name, value, className }: { children: ReactNo
   );
 }
 
-/** Rafraîchit la page toutes les `ms` tant que `active` est vrai (suivi de génération). */
-export function AutoRefresh({ active, ms = 3000 }: { active: boolean; ms?: number }) {
+/**
+ * Suivi de génération : rafraîchit la page toutes les `ms` tant que `active` est vrai,
+ * et relance la génération via `tickUrl` si elle s'est arrêtée (filet de sécurité).
+ */
+export function AutoRefresh({ active, ms = 4000, tickUrl }: { active: boolean; ms?: number; tickUrl?: string }) {
   const router = useRouter();
   useEffect(() => {
     if (!active) return;
-    const t = setInterval(() => router.refresh(), ms);
+    let n = 0;
+    const t = setInterval(() => {
+      router.refresh();
+      if (tickUrl && n++ % 5 === 0) fetch(tickUrl, { method: "POST" }).catch(() => {});
+    }, ms);
     return () => clearInterval(t);
-  }, [active, ms, router]);
+  }, [active, ms, router, tickUrl]);
   return null;
 }

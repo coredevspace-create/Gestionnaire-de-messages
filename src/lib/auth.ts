@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { config } from "./config";
-import { db, type User } from "./db";
+import { one, sql, type User } from "./db";
 
 const COOKIE = "fs_session";
 const SESSION_DAYS = 30;
@@ -24,9 +24,7 @@ export function verifyPassword(password: string, stored: string): boolean {
 export async function createSession(userId: number) {
   const token = crypto.randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + SESSION_DAYS * 86400_000);
-  db()
-    .prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)")
-    .run(token, userId, expires.toISOString());
+  await sql("INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)", [token, userId, expires.toISOString()]);
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -39,20 +37,19 @@ export async function createSession(userId: number) {
 export async function destroySession() {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
-  if (token) db().prepare("DELETE FROM sessions WHERE token = ?").run(token);
+  if (token) await sql("DELETE FROM sessions WHERE token = $1", [token]);
   jar.delete(COOKIE);
 }
 
 export async function currentUser(): Promise<User | null> {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
-  const row = db()
-    .prepare(
-      `SELECT u.id, u.email, u.credits, u.onboarded, u.monetized, u.country, u.style
-       FROM sessions s JOIN users u ON u.id = s.user_id
-       WHERE s.token = ? AND s.expires_at > ?`,
-    )
-    .get(token, new Date().toISOString()) as User | undefined;
+  const row = await one<User>(
+    `SELECT u.id, u.email, u.credits, u.onboarded, u.monetized, u.country, u.style
+     FROM sessions s JOIN users u ON u.id = s.user_id
+     WHERE s.token = $1 AND s.expires_at > now()`,
+    [token],
+  );
   return row ?? null;
 }
 

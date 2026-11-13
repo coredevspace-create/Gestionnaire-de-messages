@@ -1,4 +1,4 @@
-import { db, type Character } from "../db";
+import { one, type Character } from "../db";
 import { getCountry } from "./countries";
 
 /** Rôles récurrents des histoires familiales. Chaque pays a son propre casting. */
@@ -31,21 +31,24 @@ export function fruitLabel(fruit: string) {
 }
 
 /** Récupère (ou crée) le personnage partagé d'un rôle pour un pays/style. */
-export function getOrCreateCharacter(countryId: string, style: string, role: RoleId): Character {
+export async function getOrCreateCharacter(countryId: string, style: string, role: RoleId): Promise<Character> {
   const key = `${countryId}:${style}:${role}`;
-  const d = db();
-  const existing = d.prepare("SELECT * FROM characters WHERE key = ?").get(key) as Character | undefined;
+  const existing = await one<Character>("SELECT * FROM characters WHERE key = $1", [key]);
   if (existing) return existing;
   const r = ROLES[role];
   const country = getCountry(countryId);
   const name = country.names[r.gender][r.nameIdx];
   const look = `${r.look}, wearing ${country.outfits}`;
-  d.prepare(
-    "INSERT INTO characters (key, owner_id, country, style, name, fruit, role, look) VALUES (?, NULL, ?, ?, ?, ?, ?, ?)",
-  ).run(key, countryId, style, name, r.fruit, role, look);
-  return d.prepare("SELECT * FROM characters WHERE key = ?").get(key) as Character;
+  await one(
+    `INSERT INTO characters (key, owner_id, country, style, name, fruit, role, look)
+     VALUES ($1, NULL, $2, $3, $4, $5, $6, $7) ON CONFLICT (key) DO NOTHING`,
+    [key, countryId, style, name, r.fruit, role, look],
+  );
+  return (await one<Character>("SELECT * FROM characters WHERE key = $1", [key]))!;
 }
 
-export function castFor(countryId: string, style: string, roles: RoleId[]): Character[] {
-  return roles.map((r) => getOrCreateCharacter(countryId, style, r));
+export async function castFor(countryId: string, style: string, roles: RoleId[]): Promise<Character[]> {
+  const out: Character[] = [];
+  for (const r of roles) out.push(await getOrCreateCharacter(countryId, style, r));
+  return out;
 }

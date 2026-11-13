@@ -1,25 +1,28 @@
 import fs from "node:fs";
 import path from "node:path";
 import { currentUser } from "@/lib/auth";
-import { mediaPath } from "@/lib/storage";
+import { one } from "@/lib/db";
+import { localMediaPath } from "@/lib/storage";
 
-const TYPES: Record<string, string> = { ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg", ".srt": "text/plain" };
+const TYPES: Record<string, string> = { ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg" };
 
-/** Sert les médias (avec support Range pour la lecture vidéo). */
+/**
+ * Sert les médias en stockage LOCAL (sans Vercel Blob), avec support Range pour la vidéo.
+ * Avec Vercel Blob, les médias ont leur propre URL publique et cette route n'est pas utilisée.
+ */
 export async function GET(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const parts = (await params).path;
-  // Les planches de personnages sont publiques (utiles si Grok doit les télécharger) ;
-  // les vidéos ne sont accessibles qu'à leur propriétaire.
   if (parts[0] === "videos") {
-    const user = await currentUser();
-    const { db } = await import("@/lib/db");
-    const row = db().prepare("SELECT user_id FROM videos WHERE id = ?").get(Number(parts[1])) as { user_id: number } | undefined;
     const isPublicFrame = !!process.env.PUBLIC_BASE_URL && parts[2]?.endsWith(".png");
-    if (!isPublicFrame && (!user || !row || row.user_id !== user.id)) return new Response("Interdit", { status: 403 });
+    if (!isPublicFrame) {
+      const user = await currentUser();
+      const row = await one<{ user_id: number }>("SELECT user_id FROM videos WHERE id = $1", [Number(parts[1]) || 0]);
+      if (!user || !row || row.user_id !== user.id) return new Response("Interdit", { status: 403 });
+    }
   }
   let file: string;
   try {
-    file = mediaPath(parts.join("/"));
+    file = localMediaPath(parts.join("/"));
   } catch {
     return new Response("Chemin invalide", { status: 400 });
   }
@@ -31,10 +34,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ path: st
     const m = /bytes=(\d*)-(\d*)/.exec(range);
     const start = m?.[1] ? Number(m[1]) : 0;
     const end = m?.[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
-    const stream = fs.createReadStream(file, { start, end });
-    return new Response(stream as unknown as ReadableStream, {
+    return new Response(fs.createReadStream(file, { start, end }) as unknown as ReadableStream, {
       status: 206,
-      headers: { "Content-Type": type, "Content-Range": `bytes ${start}-${end}/${size}`, "Accept-Ranges": "bytes", "Content-Length": String(end - start + 1) },
+      headers: {
+        "Content-Type": type,
+        "Content-Range": `bytes ${start}-${end}/${size}`,
+        "Accept-Ranges": "bytes",
+        "Content-Length": String(end - start + 1),
+      },
     });
   }
   return new Response(fs.createReadStream(file) as unknown as ReadableStream, {
