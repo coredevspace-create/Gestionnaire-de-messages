@@ -9,9 +9,9 @@ const BASE = "https://api.openai.com/v1";
  * on passe au suivant au lieu de faire échouer la vidéo.
  */
 const IMAGE_MODELS = ["gpt-image-2", "gpt-image-2.5-sunburst", "gpt-image-2.5-flare"];
-const TEXT_MODELS = ["gpt-5-mini", "gpt-5.1-mini", "gpt-4.1-mini", "gpt-4o-mini"];
+const TEXT_MODELS = ["gpt-5.4-mini", "gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini"];
 /** Modèle d'écriture (scénarios) : plus créatif, quelques centimes par épisode. */
-const WRITER_MODELS = ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-5-mini"];
+const WRITER_MODELS = ["gpt-5.5", "gpt-5.4", "gpt-5.1", "gpt-5", "gpt-4.1"];
 
 function candidates(preferred: string | undefined, list: string[]) {
   return [...new Set([preferred, ...list].filter(Boolean) as string[])];
@@ -25,6 +25,24 @@ function headers(extra: Record<string, string> = {}) {
 }
 
 class ModelUnavailable extends Error {}
+
+/** Appel HTTP avec nouvelles tentatives sur les erreurs passagères (429, 5xx, coupure réseau). */
+async function call(url: string, init: RequestInit, tries = 4): Promise<Response> {
+  let last: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      const res = await fetch(url, init);
+      if (res.status !== 429 && res.status < 500) return res;
+      last = new Error(`HTTP ${res.status}`);
+      if (i === tries - 1) return res;
+    } catch (e) {
+      last = e;
+      if (i === tries - 1) throw e;
+    }
+    await new Promise((r) => setTimeout(r, 1500 * 2 ** i));
+  }
+  throw last;
+}
 
 async function check(res: Response, what: string) {
   if (res.ok) return;
@@ -59,11 +77,13 @@ async function withModels<T>(kind: "image" | "text" | "writer", fn: (model: stri
 /** Appel texte qui renvoie un objet JSON. */
 export async function chatJSON<T>(system: string, user: string, kind: "text" | "writer" = "text"): Promise<T> {
   return withModels(kind, async (model) => {
-    const res = await fetch(`${BASE}/chat/completions`, {
+    const res = await call(`${BASE}/chat/completions`, {
       method: "POST",
       headers: headers({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         model,
+        // Raisonnement court : réponses plus rapides (évite les délais dépassés), qualité d'écriture inchangée.
+        ...(/^gpt-5/.test(model) ? { reasoning_effort: kind === "writer" ? "low" : "low" } : {}),
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: system },
@@ -91,7 +111,7 @@ export async function checkSceneImage(
 ): Promise<{ ok: boolean; reason: string }> {
   try {
     return await withModels("text", async (model) => {
-      const res = await fetch(`${BASE}/chat/completions`, {
+      const res = await call(`${BASE}/chat/completions`, {
         method: "POST",
         headers: headers({ "Content-Type": "application/json" }),
         body: JSON.stringify({
@@ -151,7 +171,7 @@ async function toBuffer(json: ImageResponse): Promise<Buffer> {
  */
 export async function generateImage(prompt: string, size = "1536x1024", quality = "high"): Promise<Buffer> {
   return withModels("image", async (model) => {
-    const res = await fetch(`${BASE}/images/generations`, {
+    const res = await call(`${BASE}/images/generations`, {
       method: "POST",
       headers: headers({ "Content-Type": "application/json" }),
       body: JSON.stringify({ model, prompt, size, quality, n: 1 }),
@@ -178,7 +198,7 @@ export async function editImage(
     refs.forEach((buf, i) =>
       form.append("image[]", new Blob([new Uint8Array(buf)], { type: "image/png" }), `ref-${i}.png`),
     );
-    const res = await fetch(`${BASE}/images/edits`, { method: "POST", headers: headers(), body: form });
+    const res = await call(`${BASE}/images/edits`, { method: "POST", headers: headers(), body: form });
     await check(res, "image (références)");
     return toBuffer((await res.json()) as ImageResponse);
   });
@@ -190,7 +210,7 @@ export async function editImage(
  */
 export async function moderate(text: string): Promise<string[]> {
   try {
-    const res = await fetch(`${BASE}/moderations`, {
+    const res = await call(`${BASE}/moderations`, {
       method: "POST",
       headers: headers({ "Content-Type": "application/json" }),
       body: JSON.stringify({ model: process.env.OPENAI_MODERATION_MODEL || "omni-moderation-latest", input: text }),
@@ -219,7 +239,7 @@ export async function transcribeWords(audio: Buffer, hint: string): Promise<Word
   form.append("response_format", "verbose_json");
   form.append("timestamp_granularities[]", "word");
   form.append("prompt", hint.slice(0, 400));
-  const res = await fetch(`${BASE}/audio/transcriptions`, { method: "POST", headers: headers(), body: form });
+  const res = await call(`${BASE}/audio/transcriptions`, { method: "POST", headers: headers(), body: form });
   await check(res, "transcription");
   const json = (await res.json()) as { words?: Word[]; duration?: number };
   recordTranscription(json.duration ?? 0);
