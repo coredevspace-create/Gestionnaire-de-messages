@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { ProfileForm } from "@/components/ProfileForm";
-import { logout } from "../actions";
+import { logout } from "@/app/actions";
 
 export default async function ProfilePage() {
   const user = await requireUser();

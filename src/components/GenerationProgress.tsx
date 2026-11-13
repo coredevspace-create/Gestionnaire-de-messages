@@ -50,7 +50,7 @@ export function GenerationProgress({ stage, percent, step, startedAt, queued }: 
           <span className="eyebrow">Tournage en cours</span>
           <h2 style={{ margin: "6px 0 0" }}>{queued ? "Dans la file d'attente…" : step ?? "Préparation…"}</h2>
           <span className="muted">
-            ⏱ {mm}:{ss} écoulées · environ 3 à 5 min au total
+            {mm}:{ss} écoulées · environ 3 à 5 min au total
           </span>
         </div>
         <div className="gen-pct">{Math.round(percent)}%</div>
@@ -61,12 +61,12 @@ export function GenerationProgress({ stage, percent, step, startedAt, queued }: 
       <div className="gen-steps">
         {STEPS.map((s, i) => (
           <div key={s.label} className={`gen-step${i < stage ? " done" : i === stage ? " now" : ""}`}>
-            <span className="dot">{i < stage ? "✓" : s.icon}</span>
+            <span className="dot">{i < stage ? "✓" : i + 1}</span>
             <span>{s.label}</span>
           </div>
         ))}
       </div>
-      <p className="gen-tip">💡 {TIPS[tip]}</p>
+      <p className="gen-tip">{TIPS[tip]}</p>
     </section>
   );
 }

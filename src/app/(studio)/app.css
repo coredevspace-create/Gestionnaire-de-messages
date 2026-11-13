@@ -1,0 +1,88 @@
+/* =========================================================
+   Studio — espace de travail (outil de création)
+   Graphite, panneaux, barre latérale. Volontairement différent du site.
+   ========================================================= */
+body:has(.studio) { background: #0c0c0e; }
+.studio {
+  display: grid; grid-template-columns: 236px 1fr; min-height: 100vh;
+  /* la colonne de la barre latérale garde son fond sur toute la hauteur */
+  background: linear-gradient(to right, #09090b 235px, var(--border) 235px, var(--border) 236px, transparent 236px);
+}
+
+/* Barre latérale */
+.sidebar {
+  position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 6px;
+  padding: 16px 12px; background: #09090b; border-right: 1px solid var(--border);
+}
+.sb-brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 14px; font-weight: 650; font-size: 15px; letter-spacing: -0.02em; }
+.sb-new {
+  display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; margin: 0 2px 10px; border-radius: 10px;
+  background: var(--accent); color: #fff; font-weight: 600; font-size: 14px; transition: background 0.15s;
+}
+.sb-new:hover { background: var(--accent-2); }
+.sb-nav { display: grid; gap: 2px; }
+.sb-nav a { display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-radius: 9px; color: var(--text-2); font-size: 14px; font-weight: 500; transition: 0.12s; }
+.sb-nav a:hover { color: var(--text); background: rgba(255, 255, 255, 0.04); }
+.sb-nav a.on { color: var(--text); background: rgba(255, 255, 255, 0.07); }
+.sb-bottom { margin-top: auto; display: grid; gap: 10px; }
+.sb-credits { display: grid; gap: 8px; padding: 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); font-size: 13px; color: var(--text-2); transition: border-color 0.15s; }
+.sb-credits:hover { border-color: var(--border-strong); }
+.sb-credits b { color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }
+.sb-credits small { color: var(--text-3); font-size: 12px; }
+.gauge { height: 4px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.gauge > div { height: 100%; background: var(--accent); border-radius: 99px; }
+.sb-user { display: flex; align-items: center; gap: 8px; padding: 4px 4px 0 8px; font-size: 12.5px; color: var(--text-3); }
+.sb-user span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.icon-btn { background: transparent; color: var(--text-3); padding: 7px; border-radius: 8px; border: 0; }
+.icon-btn:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+
+/* Espace de travail */
+.workspace { min-width: 0; display: flex; flex-direction: column; }
+.topbar { display: none; }
+.ws-main { flex: 1; padding: 28px 36px 60px; max-width: 1400px; width: 100%; }
+.ws-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+.ws-head h1 { font-size: 26px; margin: 4px 0 0; letter-spacing: -0.03em; }
+.ws-head p { margin: 4px 0 0; color: var(--text-2); font-size: 14px; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; }
+
+/* Barre d'onglets mobile */
+.tabbar { display: none; }
+
+.studio-bare { min-height: 100vh; }
+
+@media (max-width: 900px) {
+  .studio { grid-template-columns: 1fr; background: none; }
+  .sidebar { display: none; }
+  .topbar {
+    display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 40; padding: 10px 16px;
+    background: rgba(9, 9, 11, 0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border);
+  }
+  .tb-credits { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; padding: 6px 11px; border-radius: 999px; background: var(--panel); border: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  .ws-main { padding: 18px 16px 110px; }
+  .tabbar {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); position: fixed; left: 0; right: 0; bottom: 0; z-index: 70;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); background: rgba(9, 9, 11, 0.96); border-top: 1px solid var(--border);
+    backdrop-filter: blur(14px);
+  }
+  .tabbar a { display: grid; justify-items: center; gap: 3px; padding: 6px 2px; font-size: 10.5px; color: var(--text-3); font-weight: 500; }
+  .tabbar a.on { color: var(--text); }
+  .tabbar a.on svg { color: var(--accent); }
+}
+
+/* Onboarding (dans le studio) */
+.auth-wrap { min-height: 70vh; display: grid; place-items: center; padding: 20px 0; }
+
+/* Mes vidéos */
+.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+.lib-item { display: grid; gap: 8px; }
+.lib-thumb { position: relative; aspect-ratio: 9 / 16; border-radius: 14px; overflow: hidden; background: var(--panel); border: 1px solid var(--border); display: grid; place-items: center; transition: border-color 0.15s, transform 0.15s; }
+.lib-item:hover .lib-thumb { border-color: var(--border-strong); transform: translateY(-2px); }
+.lib-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+.lib-thumb .badge { position: absolute; left: 8px; bottom: 8px; font-size: 11.5px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.7); }
+.lib-thumb .badge.running { color: #fcd34d; }
+.lib-thumb .badge.failed { color: #fca5a5; }
+.lib-thumb .play { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; transition: opacity 0.15s; background: rgba(0, 0, 0, 0.25); }
+.lib-item:hover .lib-thumb .play { opacity: 1; }
+.lib-item b { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; }
+.lib-item span { font-size: 12.5px; color: var(--text-3); }
+.empty { padding: 48px 24px; text-align: center; border: 1px dashed var(--border-strong); border-radius: 16px; display: grid; gap: 12px; justify-items: center; }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ActionForm, Submit } from "@/components/forms";
 import { LogoMark } from "@/components/Logo";
-import { login } from "../actions";
+import { login } from "@/app/actions";
 
 export default function LoginPage() {
   return (

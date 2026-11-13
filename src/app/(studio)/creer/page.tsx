@@ -59,8 +59,8 @@ export default async function CreatePage() {
       episodes={[...EPISODE_CHOICES]}
       countries={COUNTRIES.map((c) => ({ id: c.id, label: `${c.id === "monde" ? "🌍 " : ""}${c.name}` }))}
       tabs={[
-        { id: "trending", label: "🔥 Tendances", stories: trending.slice(0, 12).map(toStudio) },
-        { id: "monde", label: "🌍 Monde", stories: WORLD_STORIES.map(toStudio) },
+        { id: "trending", label: "Tendances", stories: trending.slice(0, 12).map(toStudio) },
+        { id: "monde", label: "Monde", stories: WORLD_STORIES.map(toStudio) },
         ...(user.country === "monde"
           ? []
           : [{ id: "local", label: country.name, flag: country.id, stories: local.filter((s) => !s.world).map(toStudio) }]),

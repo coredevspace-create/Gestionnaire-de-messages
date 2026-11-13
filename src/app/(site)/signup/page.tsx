@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ActionForm, Submit } from "@/components/forms";
 import { LogoMark } from "@/components/Logo";
 import { config } from "@/lib/config";
-import { signup } from "../actions";
+import { signup } from "@/app/actions";
 
 export default function SignupPage() {
   return (

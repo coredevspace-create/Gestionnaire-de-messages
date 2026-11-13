@@ -45,6 +45,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ path: st
     });
   }
   return new Response(fs.createReadStream(file) as unknown as ReadableStream, {
-    headers: { "Content-Type": type, "Content-Length": String(size), "Accept-Ranges": "bytes" },
+    headers: {
+      "Content-Type": type,
+      "Content-Length": String(size),
+      "Accept-Ranges": "bytes",
+      ...(new URL(req.url).searchParams.has("download")
+        ? { "Content-Disposition": `attachment; filename="${path.basename(file)}"` }
+        : {}),
+    },
   });
 }

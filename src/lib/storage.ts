@@ -66,6 +66,12 @@ export function mediaUrl(ref: string | null | undefined): string | null {
   return `/api/media/${ref.split(/[\\/]/).map(encodeURIComponent).join("/")}`;
 }
 
+/** URL qui force le téléchargement (Vercel Blob : ?download=1 ; local : en-tête attachment). */
+export function mediaDownloadUrl(ref: string | null | undefined): string | null {
+  const u = mediaUrl(ref);
+  return u ? `${u}${u.includes("?") ? "&" : "?"}download=1` : null;
+}
+
 /** URL publique absolue (pour que Grok télécharge l'image), si disponible. */
 export function publicMediaUrl(ref: string): string | null {
   if (/^https?:\/\//.test(ref)) return ref;

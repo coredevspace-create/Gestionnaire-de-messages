@@ -4,7 +4,7 @@ import { totalCredits } from "@/lib/db";
 import { euros, PLANS, planCredits, planPrice, TOPUPS, videosFor, YEARLY_MONTHS_PAID, type PlanId } from "@/lib/plans";
 import { stripeEnabled } from "@/lib/stripe";
 import { ActionForm, Submit } from "@/components/forms";
-import { openPortal, startCheckout } from "../actions";
+import { openPortal, startCheckout } from "@/app/actions";
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireUser();

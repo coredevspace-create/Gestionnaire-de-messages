@@ -1,30 +1,21 @@
-/** Logo : tranche d'agrume stylisée dont un quartier devient un bouton « lecture ». */
-export function LogoMark({ size = 30 }: { size?: number }) {
+/** Logo : tranche d'agrume au trait dont le centre est un bouton « lecture ». Sobre, monochrome + accent. */
+export function LogoMark({ size = 26 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">
-      <defs>
-        <linearGradient id="lg-citrus" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#ffb21f" />
-          <stop offset="0.45" stopColor="#ff6a2b" />
-          <stop offset="1" stopColor="#ff2e9a" />
-        </linearGradient>
-      </defs>
-      <rect width="40" height="40" rx="12" fill="url(#lg-citrus)" />
-      <circle cx="20" cy="21" r="11" fill="#fff6ec" />
-      <circle cx="20" cy="21" r="8.6" fill="#ffd27a" />
-      {[0, 60, 120, 180, 240, 300].map((a) => (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="9" fill="#fafafa" />
+      <circle cx="16" cy="16" r="9" fill="none" stroke="#0a0a0b" strokeWidth="1.6" />
+      {[30, 90, 150, 210, 270, 330].map((a) => (
         <line
           key={a}
-          x1="20"
-          y1="21"
-          x2={20 + 8.6 * Math.cos((a * Math.PI) / 180)}
-          y2={21 + 8.6 * Math.sin((a * Math.PI) / 180)}
-          stroke="#fff6ec"
-          strokeWidth="1.4"
+          x1={16 + 3.6 * Math.cos((a * Math.PI) / 180)}
+          y1={16 + 3.6 * Math.sin((a * Math.PI) / 180)}
+          x2={16 + 9 * Math.cos((a * Math.PI) / 180)}
+          y2={16 + 9 * Math.sin((a * Math.PI) / 180)}
+          stroke="#0a0a0b"
+          strokeWidth="1.2"
         />
       ))}
-      <path d="M17.6 16.8 L25 21 L17.6 25.2 Z" fill="#1a0a06" />
-      <path d="M22 8.5c2.6-2.6 6-2.4 7.4-1.6-.6 2.6-3.6 4.6-7.4 1.6z" fill="#c8f53a" />
+      <path d="M14.4 13.3 L18.9 16 L14.4 18.7 Z" fill="#ff6b2c" />
     </svg>
   );
 }
