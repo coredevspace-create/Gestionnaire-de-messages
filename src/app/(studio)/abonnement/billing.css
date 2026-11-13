@@ -1,0 +1,78 @@
+.bl { display: grid; gap: 22px; max-width: 1180px; }
+.bl-alert { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); font-size: 14px; }
+.bl-alert.ok { border-color: rgba(62, 230, 176, 0.35); color: var(--mint); }
+.bl-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); font-weight: 600; }
+
+/* Portefeuille */
+.bl-wallet {
+  display: grid; grid-template-columns: 1.3fr 1fr 0.9fr; gap: 1px; border-radius: 18px; overflow: hidden;
+  background: var(--border); border: 1px solid transparent;
+  background-image: linear-gradient(var(--border), var(--border)), var(--grad);
+  background-origin: border-box; background-clip: padding-box, border-box;
+}
+.bl-wallet > * { background: var(--panel); padding: 22px; }
+.bl-balance { display: grid; gap: 10px; background: radial-gradient(120% 140% at 0% 0%, rgba(255, 106, 43, 0.16), transparent 55%), radial-gradient(120% 140% at 100% 100%, rgba(198, 77, 255, 0.12), transparent 55%), var(--panel); }
+.bl-amount { font-size: 48px; font-weight: 650; letter-spacing: -0.05em; line-height: 1; font-variant-numeric: tabular-nums; }
+.bl-amount small { font-size: 16px; color: var(--text-2); font-weight: 500; letter-spacing: 0; }
+.bl-gauge { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.bl-gauge div { height: 100%; border-radius: 99px; background: var(--grad); }
+.bl-equiv { display: grid; align-content: center; gap: 12px; }
+.bl-equiv div { display: flex; align-items: baseline; gap: 10px; }
+.bl-equiv b { font-size: 24px; font-weight: 650; min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.bl-equiv span { color: var(--text-2); font-size: 14px; }
+.bl-plan { display: grid; align-content: center; gap: 8px; }
+.bl-plan b { font-size: 18px; letter-spacing: -0.02em; }
+.bl-plan form button { width: fit-content; }
+
+/* Sections */
+.bl-form { display: grid; gap: 18px; }
+.bl-sec-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.bl-sec-head h2 { margin: 0; font-size: 20px; }
+.bl-toggle { display: inline-flex; padding: 3px; border-radius: 10px; background: var(--panel); border: 1px solid var(--border); }
+.bl-toggle a { padding: 7px 14px; border-radius: 8px; font-size: 13.5px; font-weight: 550; color: var(--text-2); display: inline-flex; gap: 6px; align-items: center; }
+.bl-toggle a.on { background: var(--grad); color: #1a0a06; }
+.bl-toggle em { font-style: normal; font-size: 11.5px; font-weight: 700; color: var(--mint); }
+.bl-toggle a.on em { color: #1a0a06; }
+
+/* Offres */
+.bl-plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.bl-card { display: flex; flex-direction: column; gap: 10px; padding: 22px; border-radius: 18px; background: var(--panel); border: 1px solid var(--border); transition: transform 0.2s, border-color 0.2s; }
+.bl-card:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+.bl-card.pop { background: linear-gradient(var(--panel), var(--panel)) padding-box, var(--grad) border-box; border: 1.5px solid transparent; box-shadow: 0 30px 60px -36px rgba(255, 61, 107, 0.6); }
+.bl-card.current { background: linear-gradient(var(--panel), var(--panel)) padding-box, linear-gradient(120deg, #3ee6b0, #4db8ff) border-box; border: 1.5px solid transparent; }
+.bl-card-head { display: flex; justify-content: space-between; align-items: center; }
+.bl-card-head h3 { margin: 0; font-size: 18px; }
+.pill { font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--grad); color: #1a0a06; }
+.pill.cur { background: rgba(62, 230, 176, 0.14); color: var(--mint); }
+.bl-price { font-size: 38px; font-weight: 650; letter-spacing: -0.05em; line-height: 1; margin-top: 6px; }
+.bl-price small { font-size: 14px; color: var(--text-3); font-weight: 450; letter-spacing: 0; margin-left: 6px; }
+.bl-sub { font-size: 13px; }
+.bl-card ul { list-style: none; padding: 14px 0 0; margin: 4px 0 8px; display: grid; gap: 9px; border-top: 1px solid var(--border); font-size: 14px; color: var(--text-2); }
+.bl-card li { display: flex; align-items: center; gap: 9px; }
+.bl-card li svg { color: var(--mint); }
+.bl-card li b { color: var(--text); font-weight: 600; }
+.bl-card button, .bl-current, .bl-switch { margin-top: auto; }
+.bl-card button { width: 100%; padding: 12px; }
+.bl-current { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 11px; border-radius: 10px; background: rgba(62, 230, 176, 0.1); color: var(--mint); font-weight: 600; font-size: 14px; }
+.bl-switch { font-size: 13px; text-align: center; padding: 11px 0; }
+
+/* Recharges */
+.bl-topups { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.bl-topup { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border); }
+.bl-topup-ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--grad); color: #1a0a06; flex: none; }
+.bl-topup-txt { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.bl-topup-txt b { font-size: 16px; }
+.bl-topup-txt .muted { font-size: 13px; }
+.bl-topup-buy { display: flex; align-items: center; gap: 12px; }
+.bl-topup-buy span { font-size: 18px; font-weight: 650; letter-spacing: -0.03em; }
+
+/* CGV + garanties */
+.bl-cgv { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; color: var(--text-2); padding: 14px 16px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); }
+.bl-cgv input { margin-top: 2px; flex: none; }
+.bl-trust { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; color: var(--text-3); }
+.bl-trust span { display: inline-flex; align-items: center; gap: 6px; }
+
+@media (max-width: 1000px) {
+  .bl-wallet { grid-template-columns: 1fr; }
+  .bl-plans, .bl-topups { grid-template-columns: 1fr; }
+}

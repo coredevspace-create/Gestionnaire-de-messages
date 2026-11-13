@@ -1,9 +1,12 @@
+import "./billing.css";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { totalCredits } from "@/lib/db";
+import { FORMATS } from "@/lib/config";
 import { euros, PLANS, planCredits, planPrice, TOPUPS, videosFor, YEARLY_MONTHS_PAID, type PlanId } from "@/lib/plans";
 import { stripeEnabled } from "@/lib/stripe";
 import { ActionForm, Submit } from "@/components/forms";
+import { Icon } from "@/components/Icon";
 import { openPortal, startCheckout } from "@/app/actions";
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -11,97 +14,149 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const yearly = sp.periode === "annuel";
   const interval = yearly ? "year" : "month";
-  const hasPlan = !!user.plan;
+  const current = user.plan ? (user.plan as PlanId) : null;
+  const credits = totalCredits(user);
+  const cap = current ? planCredits(current, (user.plan_interval as "month" | "year") ?? "month") : 700;
+  const gauge = Math.min(100, Math.round((credits / cap) * 100));
+  const formats = Object.values(FORMATS);
 
   return (
-    <div className="stack">
-      <h1>Abonnement</h1>
-      {sp.paiement === "ok" && (
-        <p className="card">✅ Paiement reçu ! Tes crédits arrivent dans quelques secondes (rafraîchis la page).</p>
-      )}
-      {sp.paiement === "annule" && <p className="card">Paiement annulé, rien n&apos;a été débité.</p>}
-      {!stripeEnabled() && <p className="warn">Le paiement n&apos;est pas encore activé sur ce site.</p>}
+    <div className="bl">
+      <div className="ws-head">
+        <div>
+          <span className="eyebrow">Crédits</span>
+          <h1>Crédits et abonnement</h1>
+          <p>Chaque vidéo consomme des crédits. Recharge ou change d&apos;offre quand tu veux.</p>
+        </div>
+      </div>
 
-      <section className="card row" style={{ justifyContent: "space-between" }}>
-        <span>
-          <b>{totalCredits(user)} crédits</b> disponibles
-          {user.sub_credits > 0 && ` (dont ${user.sub_credits} de ton abonnement, renouvelés à chaque échéance)`}
-          {hasPlan && (
-            <>
-              {" "}
-              · Offre <b>{PLANS[user.plan as PlanId]?.name ?? user.plan}</b> ({user.plan_interval === "year" ? "annuelle" : "mensuelle"})
-              {user.plan_status === "past_due" && <span className="warn"> · paiement en retard</span>}
-            </>
+      {sp.paiement === "ok" && (
+        <div className="bl-alert ok"><Icon name="check" size={16} /> Paiement reçu ! Tes crédits arrivent dans quelques secondes.</div>
+      )}
+      {sp.paiement === "annule" && <div className="bl-alert">Paiement annulé, rien n&apos;a été débité.</div>}
+      {!stripeEnabled() && <div className="bl-alert">Le paiement n&apos;est pas encore activé sur ce site.</div>}
+
+      {/* ---------- Portefeuille ---------- */}
+      <section className="bl-wallet">
+        <div className="bl-balance">
+          <span className="bl-label">Solde disponible</span>
+          <div className="bl-amount">
+            {credits.toLocaleString("fr-FR")} <small>crédits</small>
+          </div>
+          <div className="bl-gauge"><div style={{ width: `${gauge}%` }} /></div>
+          <span className="muted">
+            {current
+              ? `${user.sub_credits.toLocaleString("fr-FR")} crédits d'abonnement, renouvelés à chaque échéance`
+              : "Sans abonnement · les crédits de recharge n'expirent pas"}
+          </span>
+        </div>
+        <div className="bl-equiv">
+          {formats.map((f) => (
+            <div key={f.seconds}>
+              <b>{Math.floor(credits / f.credits)}</b>
+              <span>vidéo{Math.floor(credits / f.credits) > 1 ? "s" : ""} de {f.seconds} s</span>
+            </div>
+          ))}
+        </div>
+        <div className="bl-plan">
+          <span className="bl-label">Offre actuelle</span>
+          <b>{current ? `${PLANS[current].name} · ${user.plan_interval === "year" ? "annuelle" : "mensuelle"}` : "Aucune"}</b>
+          {user.plan_status === "past_due" && <span className="warn">Paiement en retard</span>}
+          {user.stripe_customer_id && stripeEnabled() ? (
+            <form action={openPortal}>
+              <button className="secondary btn-sm">Gérer · factures · résilier</button>
+            </form>
+          ) : (
+            <span className="muted">Choisis une offre ci-dessous.</span>
           )}
-        </span>
-        {user.stripe_customer_id && stripeEnabled() && (
-          <form action={openPortal}>
-            <button className="secondary">Gérer mon abonnement / factures</button>
-          </form>
-        )}
+        </div>
       </section>
 
-      <ActionForm action={startCheckout} className="stack">
+      <ActionForm action={startCheckout} className="bl-form">
         <input type="hidden" name="interval" value={interval} />
-        <div className="row">
-          <Link href="/abonnement" className="tag" style={!yearly ? { background: "var(--text)", color: "#120e10" } : undefined}>
-            Mensuel
-          </Link>
-          <Link href="/abonnement?periode=annuel" className="tag" style={yearly ? { background: "var(--text)", color: "#120e10" } : undefined}>
-            Annuel · {12 - YEARLY_MONTHS_PAID} mois offerts
-          </Link>
+
+        {/* ---------- Offres ---------- */}
+        <div className="bl-sec-head">
+          <h2>Offres mensuelles</h2>
+          <div className="bl-toggle">
+            <Link href="/abonnement" className={yearly ? "" : "on"} scroll={false}>Mensuel</Link>
+            <Link href="/abonnement?periode=annuel" className={yearly ? "on" : ""} scroll={false}>
+              Annuel <em>−{Math.round((1 - YEARLY_MONTHS_PAID / 12) * 100)} %</em>
+            </Link>
+          </div>
         </div>
 
-        <label className="row card">
+        <label className="bl-cgv">
           <input type="checkbox" name="cgv" />
           <span>
-            J&apos;accepte les <Link href="/cgv">conditions générales</Link> et je demande l&apos;accès immédiat au service :
-            je reconnais perdre mon droit de rétractation pour la partie déjà fournie.
+            J&apos;accepte les <Link className="link" href="/cgv">conditions générales</Link> et demande l&apos;accès immédiat au service, en
+            renonçant à mon droit de rétractation pour la partie déjà fournie.
           </span>
         </label>
-        <div className="grid">
+        <div className="bl-plans">
           {(Object.keys(PLANS) as PlanId[]).map((id) => {
             const p = PLANS[id];
+            const pop = "popular" in p && p.popular;
+            const isCurrent = current === id;
             const price = planPrice(id, interval);
-            const credits = planCredits(id, interval);
             return (
-              <div key={id} className={`card stack${"popular" in p && p.popular ? " highlight" : ""}`}>
-                {"popular" in p && p.popular && <span className="tag">Le plus choisi</span>}
-                <h2 style={{ margin: 0 }}>{p.name}</h2>
+              <div key={id} className={`bl-card${pop ? " pop" : ""}${isCurrent ? " current" : ""}`}>
+                <div className="bl-card-head">
+                  <h3>{p.name}</h3>
+                  {isCurrent ? <span className="pill cur">Ton offre</span> : pop ? <span className="pill">Le plus choisi</span> : null}
+                </div>
                 <span className="muted">{p.tagline}</span>
-                <span style={{ fontSize: 28, fontWeight: 800 }}>
-                  {euros(price)} <span className="muted">/ {yearly ? "an" : "mois"}</span>
-                </span>
-                {yearly && <span className="muted">soit {euros(Math.round(price / 12))} / mois</span>}
-                <span>
-                  <b>{p.credits} crédits</b> chaque mois{yearly ? ` (${credits} donnés d'un coup)` : ""}
-                </span>
-                <span className="muted">{videosFor(p.credits)} par mois</span>
-                <span className="muted">Sans engagement · {(p.monthly / p.credits / 100).toFixed(3).replace(".", ",")} € le crédit</span>
-                <Submit name="item" value={id}>
-                  {hasPlan ? "Déjà abonné" : `Choisir ${p.name}`}
-                </Submit>
+                <div className="bl-price">
+                  {euros(Math.round(yearly ? price / 12 : price))}
+                  <small>/ mois</small>
+                </div>
+                {yearly && <span className="muted bl-sub">{euros(price)} facturés par an</span>}
+                <ul>
+                  <li><Icon name="check" size={15} /><span><b>{p.credits.toLocaleString("fr-FR")} crédits</b> par mois</span></li>
+                  <li><Icon name="check" size={15} />{videosFor(p.credits)}</li>
+                  <li><Icon name="check" size={15} />Toutes les histoires et personnages</li>
+                  <li><Icon name="check" size={15} />Sans engagement</li>
+                </ul>
+                {isCurrent ? (
+                  <span className="bl-current"><Icon name="check" size={15} /> Offre active</span>
+                ) : current ? (
+                  <span className="muted bl-switch">Pour changer d&apos;offre : « Gérer » en haut de page.</span>
+                ) : (
+                  <Submit name="item" value={id} className={pop ? "btn-grad" : "secondary"}>
+                    Choisir {p.name}
+                  </Submit>
+                )}
               </div>
             );
           })}
         </div>
 
-        <h2>Recharges ponctuelles</h2>
-        <p className="muted">Crédits qui n&apos;expirent pas, utilisables avec ou sans abonnement.</p>
-        <div className="grid">
+        {/* ---------- Recharges ---------- */}
+        <div className="bl-sec-head">
+          <h2>Recharges ponctuelles</h2>
+          <span className="muted">Des crédits qui n&apos;expirent pas, avec ou sans abonnement.</span>
+        </div>
+        <div className="bl-topups">
           {Object.entries(TOPUPS).map(([id, t]) => (
-            <div key={id} className="card stack">
-              <b>{t.name}</b>
-              <span style={{ fontSize: 22, fontWeight: 800 }}>{euros(t.price)}</span>
-              <span className="muted">{videosFor(t.credits)}</span>
-              <Submit name="item" value={id}>
-                Acheter
-              </Submit>
+            <div key={id} className="bl-topup">
+              <div className="bl-topup-ic"><Icon name="sparkle" size={20} /></div>
+              <div className="bl-topup-txt">
+                <b>{t.credits.toLocaleString("fr-FR")} crédits</b>
+                <span className="muted">{videosFor(t.credits)}</span>
+              </div>
+              <div className="bl-topup-buy">
+                <span>{euros(t.price)}</span>
+                <Submit name="item" value={id} className="btn-sm">Acheter</Submit>
+              </div>
             </div>
           ))}
         </div>
 
-        <p className="muted">✓ Sans engagement, résiliable en 1 clic · ✓ Paiement sécurisé par Stripe · ✓ Crédits d&apos;abonnement renouvelés à chaque échéance</p>
+        <div className="bl-trust">
+          <span><Icon name="shield" size={14} /> Paiement sécurisé par Stripe</span>
+          <span><Icon name="refresh" size={14} /> Résiliable en un clic</span>
+          <span><Icon name="check" size={14} /> Crédits remboursés si une vidéo échoue</span>
+        </div>
       </ActionForm>
     </div>
   );
