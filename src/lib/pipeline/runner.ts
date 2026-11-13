@@ -92,7 +92,7 @@ export async function makeSheet(c: Character, quality = process.env.OPENAI_PORTR
     png = await mockImage(`Portrait · ${c.name}`, `${fruitLabel(c.fruit)} — ${c.role}\n${country.name}`);
   } else {
     png = await generateImage(
-      `Single full-body character portrait of ONE character: ${c.name}, an anthropomorphic character whose head is a realistic ${c.fruit} with an expressive face, human body. ${c.look}. Culture: ${country.name}.
+      `Single full-body character portrait of ONE character: ${c.name}, an anthropomorphic character whose head is a realistic ${c.fruit} with an expressive face, human body. ${c.look}.${country.id === "monde" ? "" : ` Culture: ${country.name}.`}
 Standing, front three-quarter view, neutral friendly expression, whole body visible from head to feet, centered.
 ONE single image of ONE character only: no grid, no panels, no multiple views, no collage, no turnaround, no text. Plain light grey studio background.
 Style: ${style.prompt}`,
@@ -115,7 +115,7 @@ function scenePrompt(scene: Scene, ctx: Ctx) {
   return `ONE single cinematic still frame (the first frame of a vertical 9:16 movie shot), one continuous scene filling the whole image.
 STRICTLY FORBIDDEN: grid, panels, comic layout, split screen, collage, multiple frames, borders, insets, text, subtitles.
 Characters: ${who || "the characters from the reference images"}. The reference images only show what each character looks like: keep EXACTLY the same fruit head, face and outfit, but place them together in the new scene.
-Location: ${scene.setting} (${country.name}). Action: ${scene.action}. Camera: ${scene.camera}.
+Location: ${scene.setting}${country.id === "monde" ? "" : ` (${country.name})`}. Action: ${scene.action}. Camera: ${scene.camera}.
 Style: ${style.prompt}`;
 }
 

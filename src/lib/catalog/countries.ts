@@ -13,6 +13,16 @@ export type Country = {
 
 export const COUNTRIES: Country[] = [
   {
+    id: "monde",
+    name: "Monde",
+    flag: "🌍",
+    setting:
+      "spectacular cinematic locations chosen by the story (modern city, luxury mansion, high-security prison, office tower, stadium arena, airport, high school, restaurant kitchen…)",
+    accent: "français familier et moderne de France, comme des jeunes (« frère », « gros », « wesh », « mec », « j'avoue »)",
+    outfits: "modern clothes that fit the character's job and social status",
+    names: { male: ["Kévin", "Lucas", "Bryan", "Marco"], female: ["Sarah", "Inès", "Jessica", "Léa"] },
+  },
+  {
     id: "sn",
     name: "Sénégal",
     flag: "🇸🇳",

@@ -1,6 +1,6 @@
 import { defaultFormat, FORMATS, isMock, type FormatId } from "./config";
 import { changeCredits, one, sql, type Series, type User } from "./db";
-import { castFor, type RoleId } from "./catalog/characters";
+import { castFor, getOrCreateSpecCharacter, type RoleId } from "./catalog/characters";
 import { getStory } from "./catalog/stories";
 import { kickVideo } from "./pipeline/kick";
 
@@ -40,8 +40,10 @@ export async function createSeriesAndFirstVideo(
 
   const formatId = (input.formatId && input.formatId in FORMATS ? input.formatId : defaultFormat(user.monetized)) as FormatId;
   const episodes = [1, 3, 5, 8].includes(Number(input.episodes)) ? Number(input.episodes) : 1;
-  const country = input.country || user.country;
-  const cast = await castFor(country, user.style, story?.cast ?? FREE_CAST);
+  const country = story?.world || input.country || user.country;
+  const cast = story?.castSpec?.length
+    ? await Promise.all(story.castSpec.map((spec) => getOrCreateSpecCharacter(story.id, spec, user.style, country)))
+    : await castFor(country, user.style, story?.cast?.length ? story.cast : FREE_CAST);
   const title = story?.title ?? (pitch.length > 60 ? pitch.slice(0, 57) + "…" : pitch);
 
   const series = (await one<Series>(

@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { defaultFormat, EPISODE_CHOICES, FORMATS } from "@/lib/config";
 import { COUNTRIES, getCountry } from "@/lib/catalog/countries";
-import { storiesFor, storyOfTheDay } from "@/lib/catalog/stories";
+import { storiesFor, storyOfTheDay, WORLD_STORIES, type Story } from "@/lib/catalog/stories";
 import { ActionForm, Submit } from "@/components/forms";
 import { createVideo } from "./actions";
 
@@ -17,6 +17,7 @@ export default async function HomePage() {
   const fmt = defaultFormat(!!user.monetized);
   const daily = storyOfTheDay(user.country);
   const stories = storiesFor(user.country);
+  const world = user.country === "monde" ? [] : WORLD_STORIES;
 
   return (
     <ActionForm action={createVideo} className="stack">
@@ -90,28 +91,43 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <h2>Histoires prêtes</h2>
-      <div className="grid">
-        {stories.map((s) => (
-          <div key={s.id} className="card stack">
-            <div>
-              {s.tags.map((t) => (
-                <span key={t} className="tag">
-                  {t}
-                </span>
-              ))}
-              <span className="tag">{s.theme}</span>
-            </div>
-            <strong>{s.title}</strong>
-            <em className="muted">{s.hook}</em>
-            <div>
-              <Submit name="storyId" value={s.id}>
-                Générer
-              </Submit>
-            </div>
-          </div>
-        ))}
-      </div>
+      <h2>
+        {country.flag} Histoires {country.id === "monde" ? "Monde" : `· ${country.name}`}
+      </h2>
+      <StoryGrid stories={stories} />
+      {world.length > 0 && (
+        <>
+          <h2>🌍 Histoires Monde</h2>
+          <p className="muted">Décors de cinéma, personnages-fruits variés, français de tous les jours.</p>
+          <StoryGrid stories={world} />
+        </>
+      )}
     </ActionForm>
+  );
+}
+
+function StoryGrid({ stories }: { stories: Story[] }) {
+  return (
+    <div className="grid">
+      {stories.map((s) => (
+        <div key={s.id} className="card stack">
+          <div>
+            {s.tags.map((t) => (
+              <span key={t} className="tag">
+                {t}
+              </span>
+            ))}
+            <span className="tag">{s.theme}</span>
+          </div>
+          <strong>{s.title}</strong>
+          <em className="muted">{s.hook}</em>
+          <div>
+            <Submit name="storyId" value={s.id}>
+              Générer
+            </Submit>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }

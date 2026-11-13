@@ -18,7 +18,7 @@ export function ProfileForm({ user, submitLabel }: { user: User; submitLabel: st
         </label>
       </fieldset>
       <label className="card stack">
-        Ton pays / ton public
+        Ton univers par défaut (pays africain ou 🌍 Monde)
         <select name="country" defaultValue={user.country}>
           {COUNTRIES.map((c) => (
             <option key={c.id} value={c.id}>

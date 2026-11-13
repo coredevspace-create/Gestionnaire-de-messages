@@ -11,7 +11,7 @@ import { adminStartPregen, adminStopPregen } from "@/app/actions";
 export async function PregenAdmin() {
   const job = await one<BgJob>("SELECT * FROM bg_jobs WHERE kind = 'pregen' ORDER BY id DESC LIMIT 1");
   const chars = await sql<Character>("SELECT * FROM characters WHERE owner_id IS NULL ORDER BY country, id");
-  const order = pregenOrder().map((o) => `${o.country}:fruits3d:${o.role}`);
+  const order = pregenOrder().map((o) => o.key);
   const rank = (c: Character) => (c.key && order.includes(c.key) ? order.indexOf(c.key) : 999);
   const ready = chars.filter(sheetIsCurrent).sort((a, b) => rank(a) - rank(b));
   const total = order.length;
@@ -25,7 +25,7 @@ export async function PregenAdmin() {
       </strong>
       <span className="muted">
         Chaque personnage n&apos;est dessiné qu&apos;une fois puis réutilisé par toutes les vidéos. Les créer d&apos;avance
-        évite aux clients d&apos;attendre. Ordre : Côte d&apos;Ivoire, Sénégal, Cameroun, RDC, puis les autres pays.
+        évite aux clients d&apos;attendre. Ordre : Côte d&apos;Ivoire, personnages des histoires Monde, Sénégal, Cameroun, RDC, puis le reste.
         Coût estimé par portrait : ~0,02 $ (low), ~0,07 $ (medium), ~0,20 $ (high).
       </span>
       {job && (

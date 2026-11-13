@@ -1,5 +1,6 @@
 import { COUNTRIES } from "./catalog/countries";
-import { getOrCreateCharacter, ROLES, type RoleId } from "./catalog/characters";
+import { getOrCreateCharacter, getOrCreateSpecCharacter, ROLES, type RoleId } from "./catalog/characters";
+import { WORLD_STORIES } from "./catalog/stories";
 import { one, sql, type Character } from "./db";
 import { isMock } from "./config";
 import { mediaExists } from "./storage";
@@ -14,10 +15,36 @@ const COUNTRY_PRIORITY = ["ci", "sn", "cm", "cd", "ml", "gn", "bf", "bj", "tg", 
 const ROLE_PRIORITY: RoleId[] = ["fils", "papa", "maman", "fille", "coepouse", "bellemere", "voisin", "oncle"];
 const STYLE = "fruits3d";
 
-/** Liste ordonnée : tous les rôles du 1er pays, puis du 2e, etc. */
-export function pregenOrder(): { country: string; role: RoleId }[] {
-  const countries = [...COUNTRY_PRIORITY, ...COUNTRIES.map((c) => c.id).filter((c) => !COUNTRY_PRIORITY.includes(c))];
-  return countries.flatMap((country) => ROLE_PRIORITY.filter((r) => r in ROLES).map((role) => ({ country, role })));
+export type PregenItem = { key: string; create: () => Promise<Character> };
+
+function rolesOf(country: string): PregenItem[] {
+  return ROLE_PRIORITY.filter((r) => r in ROLES).map((role) => ({
+    key: `${country}:${STYLE}:${role}`,
+    create: () => getOrCreateCharacter(country, STYLE, role),
+  }));
+}
+
+/**
+ * Ordre de création : Côte d'Ivoire, puis les personnages des histoires Monde,
+ * puis Sénégal, Cameroun, RDC, les rôles génériques Monde, et les autres pays.
+ */
+export function pregenOrder(): PregenItem[] {
+  const world: PregenItem[] = WORLD_STORIES.flatMap((story) =>
+    (story.castSpec ?? []).map((spec) => ({
+      key: `story:${story.id}:${spec.id}:${STYLE}`,
+      create: () => getOrCreateSpecCharacter(story.id, spec, STYLE, story.world ?? "monde"),
+    })),
+  );
+  const [first, ...rest] = COUNTRY_PRIORITY;
+  const others = COUNTRIES.map((c) => c.id).filter((c) => !COUNTRY_PRIORITY.includes(c) && c !== "monde");
+  return [
+    ...rolesOf(first),
+    ...world,
+    ...rest.slice(0, 3).flatMap(rolesOf),
+    ...rolesOf("monde"),
+    ...rest.slice(3).flatMap(rolesOf),
+    ...others.flatMap(rolesOf),
+  ];
 }
 
 export type BgJob = {
@@ -62,8 +89,8 @@ export async function runPregen(jobId: number, budgetMs = 150_000): Promise<"don
       // Prochains personnages sans portrait à jour.
       const todo: Character[] = [];
       let doneCount = 0;
-      for (const { country, role } of pregenOrder()) {
-        const c = await getOrCreateCharacter(country, STYLE, role);
+      for (const item of pregenOrder()) {
+        const c = await item.create();
         if (sheetIsCurrent(c) && (await mediaExists(c.sheet_path))) doneCount++;
         else if (todo.length < BATCH) todo.push(c);
       }

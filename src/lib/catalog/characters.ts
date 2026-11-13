@@ -24,6 +24,20 @@ const FRUIT_FR: Record<string, string> = {
   peach: "Pêche",
   coconut: "Noix de coco",
   watermelon: "Pastèque",
+  banana: "Banane",
+  pomegranate: "Grenade",
+  blueberry: "Myrtille",
+  melon: "Melon",
+  apple: "Pomme",
+  lemon: "Citron",
+  kiwi: "Kiwi",
+  grape: "Raisin",
+  pear: "Poire",
+  cherry: "Cerise",
+  tomato: "Tomate",
+  potato: "Pomme de terre",
+  carrot: "Carotte",
+  eggplant: "Aubergine",
 };
 
 export function fruitLabel(fruit: string) {
@@ -51,4 +65,19 @@ export async function castFor(countryId: string, style: string, roles: RoleId[])
   const out: Character[] = [];
   for (const r of roles) out.push(await getOrCreateCharacter(countryId, style, r));
   return out;
+}
+
+/** Personnage propre à une histoire (univers Monde) : un archétype précis, partagé par tous les utilisateurs. */
+export type CharSpec = { id: string; name: string; fruit: string; role: string; look: string };
+
+export async function getOrCreateSpecCharacter(storyId: string, spec: CharSpec, style: string, country = "monde"): Promise<Character> {
+  const key = `story:${storyId}:${spec.id}:${style}`;
+  const existing = await one<Character>("SELECT * FROM characters WHERE key = $1", [key]);
+  if (existing) return existing;
+  await one(
+    `INSERT INTO characters (key, owner_id, country, style, name, fruit, role, look)
+     VALUES ($1, NULL, $2, $3, $4, $5, $6, $7) ON CONFLICT (key) DO NOTHING`,
+    [key, country, style, spec.name, spec.fruit, spec.role, spec.look],
+  );
+  return (await one<Character>("SELECT * FROM characters WHERE key = $1", [key]))!;
 }
