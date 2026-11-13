@@ -5,7 +5,7 @@ import { config, isMock } from "../config";
 import { changeCredits, one, sql, type Character, type Series, type Video } from "../db";
 import { getCountry, getStyle } from "../catalog/countries";
 import { fruitLabel } from "../catalog/characters";
-import { checkSceneImage, editImage, generateImage, transcribeWords } from "../ai/openai";
+import { checkSceneImage, editImage, generateImage, transcribeWords, type Word } from "../ai/openai";
 import { checkVideo, submitVideo } from "../ai/xai";
 import { mockClip, mockImage } from "../ai/mock";
 import { buildPlan, buildScript, type Scene, type Script, type SeriesPlan } from "../ai/script";
@@ -200,46 +200,75 @@ async function collectClips(ctx: Ctx): Promise<boolean> {
 async function assemble(ctx: Ctx): Promise<string> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `fs-video-${ctx.video.id}-`));
   try {
-    const secs = sceneSeconds(ctx);
+    const planned = sceneSeconds(ctx);
+    const scenes = ctx.script!.scenes;
+
+    // 1. Pour chaque plan : transcription mot à mot de la voix réelle (Grok) …
+    const raws: string[] = [];
+    const wordsPer: (Word[] | null)[] = await Promise.all(
+      scenes.map(async (s, i) => {
+        const raw = path.join(dir, `raw-${i}.mp4`);
+        fs.writeFileSync(raw, await getMedia(s.clipPath!));
+        raws[i] = raw;
+        if (isMock()) return null;
+        try {
+          const mp3 = path.join(dir, `voice-${i}.mp3`);
+          await ffmpeg(["-i", raw, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "48k", mp3]);
+          const w = await transcribeWords(fs.readFileSync(mp3), s.lines.map((l) => l.text).join(" "));
+          return w.length ? w : null;
+        } catch (e) {
+          console.warn(`[video ${ctx.video.id}] transcription plan ${i + 1} impossible`, e);
+          return null;
+        }
+      }),
+    );
+
+    // 2. … puis on coupe les blancs : le plan commence juste avant la 1re parole
+    //    et s'arrête peu après la dernière (rythme TikTok, pas de « trous »).
+    const cutStart: number[] = [];
+    const secs: number[] = scenes.map((_, i) => {
+      const w = wordsPer[i];
+      if (!w) {
+        cutStart[i] = 0;
+        return planned[i];
+      }
+      const first = w[0].start;
+      const last = w[w.length - 1].end;
+      const begin = first > 0.7 ? Math.max(0, first - 0.3) : 0;
+      const end = Math.min(planned[i] + 2, last + 0.55);
+      cutStart[i] = begin;
+      return Math.max(2.2, Math.round((end - begin) * 100) / 100);
+    });
+
     const normalized: string[] = [];
-    for (let i = 0; i < ctx.script!.scenes.length; i++) {
-      const raw = path.join(dir, `raw-${i}.mp4`);
-      fs.writeFileSync(raw, await getMedia(ctx.script!.scenes[i].clipPath!));
+    for (let i = 0; i < scenes.length; i++) {
       const out = path.join(dir, `norm-${i}.mp4`);
-      await normalizeClip(raw, out, secs[i]);
+      await normalizeClip(raws[i], out, secs[i], cutStart[i]);
       normalized.push(out);
     }
     const joined = path.join(dir, "joined.mp4");
     await concatClips(normalized, joined);
 
-    // Sous-titres : on transcrit la voix réelle de chaque plan (mot à mot) pour coller exactement
-    // à ce qui est dit. Repli : le texte du scénario réparti sur la durée du plan.
+    // 3. Sous-titres calés sur les mots réels (décalés de la coupe). Repli : texte du scénario réparti.
     const offsets: number[] = [];
     secs.reduce((acc, d) => (offsets.push(acc), acc + d), 0);
-    const perScene = await Promise.all(
-      ctx.script!.scenes.map(async (s, i): Promise<TimedLine[]> => {
-        if (!isMock()) {
-          try {
-            const mp3 = path.join(dir, `voice-${i}.mp3`);
-            await ffmpeg(["-i", normalized[i], "-vn", "-ac", "1", "-ar", "16000", "-b:a", "48k", mp3]);
-            const words = await transcribeWords(fs.readFileSync(mp3), s.lines.map((l) => l.text).join(" "));
-            const lines = wordsToTimedLines(words, s.lines, offsets[i]).filter((l) => l.end <= offsets[i] + secs[i] + 0.3);
-            if (lines.length) return lines;
-          } catch (e) {
-            console.warn(`[video ${ctx.video.id}] transcription plan ${i + 1} impossible`, e);
-          }
-        }
-        const usable = Math.max(1, secs[i] - 0.6);
-        const totalChars = s.lines.reduce((a, l) => a + l.text.length, 0) || 1;
-        let cur = offsets[i] + 0.3;
-        return s.lines.map((l) => {
-          const d = (usable * l.text.length) / totalChars;
-          const line = { speaker: l.speaker, text: l.text, start: cur, end: cur + d };
-          cur += d;
-          return line;
-        });
-      }),
-    );
+    const perScene = scenes.map((s, i): TimedLine[] => {
+      const w = wordsPer[i];
+      if (w) {
+        const shifted = w.map((x) => ({ ...x, start: x.start - cutStart[i], end: x.end - cutStart[i] }));
+        const lines = wordsToTimedLines(shifted, s.lines, offsets[i]).filter((l) => l.start < offsets[i] + secs[i]);
+        if (lines.length) return lines;
+      }
+      const usable = Math.max(1, secs[i] - 0.6);
+      const totalChars = s.lines.reduce((a, l) => a + l.text.length, 0) || 1;
+      let cur = offsets[i] + 0.3;
+      return s.lines.map((l) => {
+        const d = (usable * l.text.length) / totalChars;
+        const line = { speaker: l.speaker, text: l.text, start: cur, end: cur + d };
+        cur += d;
+        return line;
+      });
+    });
     const timed: TimedLine[] = perScene.flat();
     const assPath = path.join(dir, "subs.ass");
     const total = secs.reduce((a, b) => a + b, 0);

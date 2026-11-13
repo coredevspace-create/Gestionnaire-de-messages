@@ -4,7 +4,7 @@ import { currentUser } from "@/lib/auth";
 import { one } from "@/lib/db";
 import { localMediaPath } from "@/lib/storage";
 
-const TYPES: Record<string, string> = { ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg" };
+const TYPES: Record<string, string> = { ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp" };
 
 /**
  * Sert les médias en stockage LOCAL (sans Vercel Blob), avec support Range pour la vidéo.

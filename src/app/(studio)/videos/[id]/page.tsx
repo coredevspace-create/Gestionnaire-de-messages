@@ -12,6 +12,7 @@ import { ActionForm, AutoRefresh, Submit } from "@/components/forms";
 import { GenerationProgress } from "@/components/GenerationProgress";
 import { CopyCaption, DownloadButton } from "@/components/DownloadButton";
 import { Icon } from "@/components/Icon";
+import { Thumb } from "@/components/Thumb";
 import { adminToggleShowcase, nextEpisode, retry } from "@/app/actions";
 
 function slug(s: string) {
@@ -149,7 +150,7 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
             {script.scenes.map((s, i) => (
               <div key={i} className="vp-shot">
                 <div className="thumb">
-                  {s.imagePath ? <img src={mediaUrl(s.imagePath)!} alt={`Plan ${i + 1}`} /> : <div className="spinner" />}
+                  {s.imagePath ? <Thumb src={mediaUrl(s.imagePath)!} alt={`Plan ${i + 1}`} /> : <div className="spinner" />}
                   <span className="n">{i + 1}</span>
                   {s.clipPath && <span className="ok"><Icon name="check" size={12} /></span>}
                 </div>

@@ -74,7 +74,10 @@ Public : Afrique francophone (et diaspora). Ton : drôle, dramatique, rebondisse
 L'histoire doit être simple à suivre : un enjeu clair (argent, mariage, trahison, honte publique…), des personnages aux motivations évidentes.
 ${VIRAL_FORMULA}
 Réponds UNIQUEMENT en JSON : {"title": string, "episodes": [{"n": number, "title": string, "summary": string, "cliffhanger": string}]}.
-Chaque épisode (sauf le dernier) finit sur un suspense fort. Le dernier épisode finit sur une chute drôle ou choquante (décrite en une phrase, pas "Fin").`,
+Chaque épisode = UNE scène filmable : un lieu, deux personnages principaux face à face, un conflit concret (argent, accusation, humiliation, secret),
+et un fait précis révélé ou un geste fort à la fin. "summary" décrit cette scène en 2 phrases concrètes (qui, où, quoi, ce qui est révélé).
+Chaque épisode (sauf le dernier) finit sur un suspense fort et précis. Le dernier épisode finit sur une chute drôle ou choquante (pas "Fin").
+Les épisodes s'enchaînent : chacun reprend exactement là où le précédent s'est arrêté.`,
     `Pays : ${country.name} (${country.setting}).
 Titre : ${input.title}
 Pitch : ${input.pitch}
@@ -84,8 +87,23 @@ Durée de chaque épisode : ${input.seconds ?? 30} secondes. Chaque "summary" ne
 ${input.episodes === 1 ? "Épisode unique : raconte seulement le début accrocheur de l'histoire et coupe sur un suspense." : ""}
 Personnages :
 ${castText(input.cast)}`,
+    "writer",
   );
 }
+
+/** Débit de parole visé (mots par seconde) : sert à remplir chaque plan sans blanc. */
+const WORDS_PER_SECOND = 2.4;
+
+/** Exemple de référence (qualité attendue) montré au scénariste. */
+const GOLD_EXAMPLE = `EXEMPLE DE RÉFÉRENCE (20 s, 3 plans) — imite ce niveau de clarté et de tension, pas son histoire :
+{"title":"Le test du patron","logline":"Accusé de vol par son patron, l'employé révèle que la vraie voleuse est la femme du patron.","mood":"suspense",
+"scenes":[
+{"characters":["M. Mangue","Kouassi"],"setting":"small shop office, cash register open and empty","action":"M. Mangue, furious, slams the empty cash box on the desk and points at Kouassi, who raises his hands, shocked","camera":"medium shot",
+ "lines":[{"speaker":"M. Mangue","text":"Kouassi, il manque cinq cent mille francs dans ma caisse ce matin !"},{"speaker":"Kouassi","text":"Patron, je vous jure, je n'ai jamais touché à votre argent."}]},
+{"characters":["M. Mangue","Kouassi"],"setting":"same office","action":"M. Mangue shoves the register book with a signature in Kouassi's face; Kouassi looks at it, then his eyes narrow as he understands","camera":"close-up on Kouassi's face",
+ "lines":[{"speaker":"M. Mangue","text":"Alors pourquoi ta signature est sur le registre, menteur ?"},{"speaker":"Kouassi (pensée)","text":"Quelqu'un a imité ma signature… et je sais exactement qui."}]},
+{"characters":["Kouassi","M. Mangue"],"setting":"same office","action":"Kouassi turns his phone screen toward M. Mangue: a video shows a woman taking the money; M. Mangue's face freezes in shock","camera":"over-the-shoulder shot on the phone screen",
+ "lines":[{"speaker":"Kouassi","text":"Regardez la caméra du magasin, patron. C'est votre propre femme."},{"speaker":"M. Mangue","text":"Quoi ?! Fraise… ce n'est pas possible !"}]}]}`;
 
 export async function buildScript(input: {
   plan: SeriesPlan;
@@ -97,6 +115,9 @@ export async function buildScript(input: {
 }): Promise<Script> {
   const sceneCount = Math.max(1, Math.round(input.seconds / config.clipSeconds));
   const ep = input.plan.episodes.find((e) => e.n === input.episode) ?? input.plan.episodes[0];
+  const perShot = input.seconds / sceneCount;
+  const wordsMin = Math.round(perShot * WORDS_PER_SECOND * 0.8);
+  const wordsMax = Math.round(perShot * WORDS_PER_SECOND * 1.05);
 
   if (isMock()) {
     return {
@@ -123,66 +144,59 @@ export async function buildScript(input: {
   const style = getStyle(input.styleId);
   const world =
     country.id === "monde"
-      ? "Univers Monde : décors universels, argent en euros, aucune référence africaine (pas de FCFA, pas de pagne…)."
+      ? "Univers Monde : décors universels, argent en euros, prénoms courants, aucune référence africaine."
       : `Univers ${country.name} : décors, prénoms et argent locaux (${country.setting}).`;
 
-  const draft = await chatJSON<Script>(
-    `Tu es scénariste de mini-séries TikTok jouées par des personnages-fruits 3D. Tu écris UN épisode de ${input.seconds} secondes,
-découpé en exactement ${sceneCount} plans de ~${config.clipSeconds} s. Style visuel : ${style.prompt}.
-${world}
+  const rules = `CONTRAINTES :
+- Exactement ${sceneCount} plans de ~${perShot.toFixed(0)} s, format vertical. ${world}
+- UNE SEULE SCÈNE : même lieu, temps continu, les mêmes 2 personnages principaux (un 3e au maximum, seulement s'il est indispensable).
+- DIALOGUE QUI REMPLIT LE TEMPS : chaque plan contient ${wordsMin} à ${wordsMax} mots de dialogue au total
+  (en général 2 répliques qui se répondent, chacune une phrase complète). Aucun plan muet, aucun blanc.
+- Plan 1 : en une phrase, on comprend QUI accuse/menace QUI et POURQUOI (l'enjeu concret, avec un chiffre ou un objet précis).
+- Chaque réplique répond directement à la précédente (question → réponse, accusation → défense, menace → riposte).
+- Le dernier plan contient le RETOURNEMENT ou la RÉVÉLATION, dit clairement, avec la réaction du perdant. Rien de vague (« tu vas voir… »).
+- Interdits : phrases télégraphiques, énumérations, informations qui tombent du ciel, « Fin », narration, didascalies dans les répliques.
+- Pensée intérieure possible : speaker = "Prénom (pensée)" (au plus une par épisode).
+- "characters" et "speaker" : EXACTEMENT les noms de la liste fournie.
+- "setting", "action", "camera" en ANGLAIS. "action" décrit ce qu'on VOIT : le geste, l'objet clé visible, et la réaction de l'autre.
+- "mood" parmi : suspense, drame, emotion, action, comedie, triomphe.
+Réponds UNIQUEMENT en JSON : {"title": string, "logline": string, "mood": string, "scenes": [{"characters": string[], "setting": string, "action": string, "camera": string, "lines": [{"speaker": string, "text": string}]}]}`;
 
-PRINCIPE N°1 — UN SPECTATEUR QUI NE SAIT RIEN DOIT TOUT COMPRENDRE.
-En ${input.seconds} secondes on ne raconte qu'UNE situation simple, pas toute l'histoire. Mieux vaut moins d'événements, parfaitement clairs.
-
-BEATS OBLIGATOIRES :
-${beats(sceneCount)}
-
-RÈGLES DES RÉPLIQUES :
-- UNE réplique par plan, dite par UN personnage visible. Phrase complète, naturelle, 6 à 12 mots, dicible en ${Math.max(3, config.clipSeconds - 2)} s.
-- Chaque réplique répond DIRECTEMENT à la précédente ou à ce qu'on vient de voir (cause → conséquence). Aucun saut logique.
-- Toute information nécessaire est DITE ou MONTRÉE (qui est qui, ce qu'il veut, ce qui est en jeu). Pas de chiffres ni de noms sortis de nulle part.
-- Le méchant et la victime sont identifiables dès le plan 1 (on s'appelle par son prénom ou son rôle).
-- Pas de jargon, pas d'énumérations télégraphiques (« 300 plateaux, 5 minutes »). Français simple, ton familier.
-- Une pensée intérieure est permise : speaker = "Prénom (pensée)".
-- Au maximum ${sceneCount <= 5 ? "2 ou 3" : "4"} personnages dans tout l'épisode.
-${VIRAL_FORMULA}
-
-RÈGLES DES IMAGES ("setting", "action", "camera" en ANGLAIS) :
-- "action" décrit précisément ce qu'on VOIT : qui fait quoi, l'objet clé visible (téléphone avec la preuve à l'écran, liasse de billets…),
-  et la RÉACTION visible de l'autre personnage (peur, colère, choc). L'image doit illustrer la réplique.
-- Un seul lieu continu par plan, 1 à 3 lieux pour tout l'épisode. Cadrages variés (gros plan visage, plan moyen, détail sur l'objet).
-- "characters" et "speaker" : EXACTEMENT les noms de la liste fournie, écrits pareil (ex. « Le Boss », pas « La Pastèque »), 1 ou 2 par plan.
-
-FIN : le dernier plan se termine sur ce moment (sans le recopier mot pour mot) : ${ep.cliffhanger}
-"logline" = l'épisode en une phrase simple. "mood" parmi : suspense, drame, emotion, action, comedie, triomphe.
-Réponds UNIQUEMENT en JSON : {"title": string, "logline": string, "mood": string, "scenes": [{"characters": string[], "setting": string, "action": string, "camera": string, "lines": [{"speaker": string, "text": string}]}]}`,
-    `Épisode ${ep.n}/${input.plan.episodes.length} : ${ep.title}
-Ce qui se passe dans CET épisode : ${ep.summary}
+  const brief = `Épisode ${ep.n}/${input.plan.episodes.length} : ${ep.title}
+Ce qui doit se passer : ${ep.summary}
+Fin de l'épisode : ${ep.cliffhanger}
 Personnages disponibles :
-${castText(input.cast)}`,
-  );
+${castText(input.cast)}`;
 
+  const draft = await chatJSON<Script>(
+    `Tu es le meilleur scénariste de mini-séries TikTok (personnages-fruits 3D, style ${style.prompt}).
+Tu écris un épisode de ${input.seconds} secondes que n'importe qui comprend du premier coup et regarde jusqu'au bout.
+Méthode : 1) choisis UN conflit simple et concret entre deux personnages ; 2) écris la scène comme un vrai dialogue de film,
+naturel, tendu, avec des répliques qui s'enchaînent ; 3) découpe-la en plans.
+${VIRAL_FORMULA}
+${rules}
+${GOLD_EXAMPLE}`,
+    brief,
+    "writer",
+  );
   draft.scenes = normalizeNames(draft.scenes ?? [], input.cast);
 
-  // Relecture par un « script doctor » : vérifie la clarté pour un spectateur qui ne sait rien et corrige.
+  // Relecture notée : si la note est faible, réécriture complète.
   try {
-    const fixed = await chatJSON<Script & { problems?: string[] }>(
-      `Tu es script doctor pour des mini-séries TikTok de ${input.seconds} secondes. On te donne un scénario en JSON.
-Relis-le comme un spectateur qui ne sait RIEN de l'histoire et qui n'entend que les répliques en voyant les images.
-Vérifie et CORRIGE si besoin :
-1. Comprend-on qui est le méchant, qui est la victime, et ce qui est en jeu dès le plan 1 ?
-2. Chaque réplique découle-t-elle logiquement de la précédente ? Supprime tout saut, tout élément sorti de nulle part.
-3. Les répliques sont-elles des phrases complètes et naturelles de 6 à 12 mots (pas de style télégraphique) ?
-4. Les "action" (anglais) montrent-elles ce qui est dit et la réaction des autres personnages ?
-5. Cohérence de l'univers : ${world}
-6. La fin donne-t-elle envie de voir la suite ?
-Garde exactement ${sceneCount} plans, les mêmes prénoms, et le même format JSON (+ un champ "problems" listant ce que tu as corrigé).
-Réponds UNIQUEMENT en JSON.`,
+    const review = await chatJSON<Script & { score?: number; problems?: string[] }>(
+      `Tu es script doctor exigeant. On te donne un épisode TikTok de ${input.seconds} s en JSON.
+Lis-le comme un spectateur qui ne connaît RIEN de l'histoire et n'a que les images et les répliques.
+Note sur 10 (champ "score") selon : clarté de la situation dès le plan 1, logique réplique après réplique,
+tension qui monte, retournement net et compréhensible à la fin, dialogue naturel, absence de blancs (${wordsMin}-${wordsMax} mots par plan).
+Liste les défauts dans "problems". Puis renvoie la version CORRIGÉE de l'épisode (même format, ${sceneCount} plans, mêmes noms) :
+si la note est < 8, réécris franchement le dialogue pour atteindre 9/10 en gardant l'idée.
+${rules}`,
       JSON.stringify(draft),
+      "writer",
     );
-    if (fixed?.scenes?.length === draft.scenes?.length && fixed.scenes.every((sc) => sc.lines?.length)) {
-      const { problems, ...rest } = fixed;
-      if (problems?.length) console.log("[script doctor]", problems);
+    if (review?.scenes?.length === sceneCount && review.scenes.every((sc) => sc.lines?.length)) {
+      const { problems, score, ...rest } = review;
+      console.log("[script doctor]", score, problems);
       rest.scenes = normalizeNames(rest.scenes, input.cast);
       return rest;
     }
@@ -190,24 +204,6 @@ Réponds UNIQUEMENT en JSON.`,
     console.warn("[script doctor] relecture ignorée", e);
   }
   return draft;
-}
-
-/** Structure narrative imposée selon le nombre de plans. */
-function beats(n: number): string {
-  if (n <= 3)
-    return `- Plan 1 : LA SITUATION. Le méchant menace/humilie la victime ; on comprend tout de suite l'injustice.
-- Plan ${n === 3 ? 2 : 1} : LA RÉACTION. La victime (ou un témoin) réagit et laisse voir qu'elle a un secret ou un atout.
-- Plan ${n} : LE CHOC. Le secret éclate ou va éclater ; réaction du méchant ; on coupe au moment le plus fort.`;
-  if (n <= 5)
-    return `- Plan 1 : la situation et l'injustice, claires.
-- Plan 2 : l'injustice empire (le méchant en rajoute).
-- Plan 3 : la victime révèle un indice/atout (un témoin le remarque).
-- Plan 4 : le méchant ne voit rien venir, il se moque.
-- Plan ${n} : le choc, coupé au moment le plus fort.`;
-  return `- Plans 1-2 : la situation, les personnages, l'injustice.
-- Plans 3-${Math.floor(n / 2)} : l'injustice monte, la victime encaisse ; un témoin remarque quelque chose.
-- Plans ${Math.floor(n / 2) + 1}-${n - 2} : la victime prépare sa riposte, le méchant se croit intouchable.
-- Plans ${n - 1}-${n} : le retournement éclate ; réaction du méchant ; on coupe au moment le plus fort.`;
 }
 
 function norm(t: string) {

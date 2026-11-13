@@ -25,16 +25,32 @@ export function localMediaPath(rel: string) {
   return localPath(rel);
 }
 
-const TYPES: Record<string, string> = { ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg" };
+const TYPES: Record<string, string> = { ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp" };
 
 /** Enregistre un fichier et renvoie sa référence (URL Blob ou chemin relatif). */
+/** Type réel d'un fichier d'après ses premiers octets (l'extension peut mentir). */
+function sniff(data: Buffer): { type: string; ext: string } | null {
+  if (data.length < 12) return null;
+  if (data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4e && data[3] === 0x47) return { type: "image/png", ext: ".png" };
+  if (data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return { type: "image/jpeg", ext: ".jpg" };
+  if (data.toString("ascii", 0, 4) === "RIFF" && data.toString("ascii", 8, 12) === "WEBP") return { type: "image/webp", ext: ".webp" };
+  if (data.toString("ascii", 4, 8) === "ftyp") return { type: "video/mp4", ext: ".mp4" };
+  return null;
+}
+
 export async function putMedia(rel: string, data: Buffer): Promise<string> {
+  // Corrige extension et type si le contenu n'est pas celui annoncé (ex. image WebP nommée .png) :
+  // sinon le navigateur refuse de l'afficher (en-tête nosniff du stockage).
+  const real = sniff(data);
+  if (real && real.ext !== path.extname(rel) && real.type.startsWith("image/") === (TYPES[path.extname(rel)] ?? "").startsWith("image/")) {
+    rel = rel.slice(0, rel.length - path.extname(rel).length) + real.ext;
+  }
   if (useBlob()) {
     const { put } = await import("@vercel/blob");
     const res = await put(rel, data, {
       access: "public",
       addRandomSuffix: true,
-      contentType: TYPES[path.extname(rel)] ?? "application/octet-stream",
+      contentType: real?.type ?? TYPES[path.extname(rel)] ?? "application/octet-stream",
     });
     return res.url;
   }

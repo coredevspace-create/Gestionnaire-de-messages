@@ -10,13 +10,15 @@ const BASE = "https://api.openai.com/v1";
  */
 const IMAGE_MODELS = ["gpt-image-2", "gpt-image-2.5-sunburst", "gpt-image-2.5-flare"];
 const TEXT_MODELS = ["gpt-5-mini", "gpt-5.1-mini", "gpt-4.1-mini", "gpt-4o-mini"];
+/** Modèle d'écriture (scénarios) : plus créatif, quelques centimes par épisode. */
+const WRITER_MODELS = ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-5-mini"];
 
 function candidates(preferred: string | undefined, list: string[]) {
   return [...new Set([preferred, ...list].filter(Boolean) as string[])];
 }
 
 // Modèle qui a fonctionné en dernier (évite de retester les modèles morts à chaque appel).
-const working: Record<"image" | "text", string | undefined> = { image: undefined, text: undefined };
+const working: Record<"image" | "text" | "writer", string | undefined> = { image: undefined, text: undefined, writer: undefined };
 
 function headers(extra: Record<string, string> = {}) {
   return { Authorization: `Bearer ${config.openaiKey}`, ...extra };
@@ -35,9 +37,10 @@ async function check(res: Response, what: string) {
   throw modelProblem ? new ModelUnavailable(msg) : new Error(msg);
 }
 
-async function withModels<T>(kind: "image" | "text", fn: (model: string) => Promise<T>): Promise<T> {
-  const preferred = kind === "image" ? process.env.OPENAI_IMAGE_MODEL : process.env.OPENAI_TEXT_MODEL;
-  const list = candidates(working[kind] ?? preferred, kind === "image" ? IMAGE_MODELS : TEXT_MODELS);
+async function withModels<T>(kind: "image" | "text" | "writer", fn: (model: string) => Promise<T>): Promise<T> {
+  const preferred =
+    kind === "image" ? process.env.OPENAI_IMAGE_MODEL : kind === "writer" ? process.env.OPENAI_WRITER_MODEL : process.env.OPENAI_TEXT_MODEL;
+  const list = candidates(working[kind] ?? preferred, kind === "image" ? IMAGE_MODELS : kind === "writer" ? WRITER_MODELS : TEXT_MODELS);
   let last: Error | undefined;
   for (const model of list) {
     try {
@@ -54,8 +57,8 @@ async function withModels<T>(kind: "image" | "text", fn: (model: string) => Prom
 }
 
 /** Appel texte qui renvoie un objet JSON. */
-export async function chatJSON<T>(system: string, user: string): Promise<T> {
-  return withModels("text", async (model) => {
+export async function chatJSON<T>(system: string, user: string, kind: "text" | "writer" = "text"): Promise<T> {
+  return withModels(kind, async (model) => {
     const res = await fetch(`${BASE}/chat/completions`, {
       method: "POST",
       headers: headers({ "Content-Type": "application/json" }),
