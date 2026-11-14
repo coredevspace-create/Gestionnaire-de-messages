@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS credit_ledger (
 -- Évolutions du schéma (après la création de toutes les tables)
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS metrics_json TEXT;
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS cover_path TEXT;
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS engine TEXT NOT NULL DEFAULT 'grok';
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS approved BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE videos ALTER COLUMN approved SET DEFAULT false;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS sub_credits INTEGER NOT NULL DEFAULT 0;
@@ -227,6 +228,8 @@ export type Video = {
   approved: boolean;
   /** Couverture TikTok (JPEG 1080x1920) */
   cover_path: string | null;
+  /** « grok » (voix générées par Grok) ou « dub » (voix OpenAI + animation muette + lèvres Kling) */
+  engine: string;
   step: string | null;
   script_json: string | null;
   output_path: string | null;

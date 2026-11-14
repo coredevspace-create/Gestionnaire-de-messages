@@ -25,6 +25,10 @@ export const PRICES = {
   ),
   // $ par image envoyée à Grok
   grokPerInputImage: Number(process.env.PRICE_GROK_PER_INPUT_IMAGE || 0.01),
+  // Moteur « doublage » : animation muette Grok Lite, lèvres Kling, voix OpenAI
+  grokLitePerSecond: Number(process.env.PRICE_GROK_LITE_PER_SECOND || 0.02),
+  klingLipSyncPerSecond: Number(process.env.PRICE_KLING_LIPSYNC_PER_SECOND || 0.014),
+  ttsPer1kChars: Number(process.env.PRICE_TTS_PER_1K_CHARS || 0.017),
 };
 
 export type Metrics = {
@@ -42,6 +46,10 @@ export type Metrics = {
   /** Secondes d'audio transcrites (sous-titres) */
   transcribedSeconds?: number;
   grokSeconds: number;
+  /** Moteur doublage : secondes d'animation Grok Lite, secondes synchronisées par Kling, caractères de voix */
+  liteSeconds?: number;
+  lipSyncSeconds?: number;
+  ttsChars?: number;
   /** Planches de personnages générées pour cette vidéo (coût partagé ensuite) */
   sheets: number;
   /** Images de plan refusées par le contrôle qualité puis regénérées */
@@ -101,6 +109,11 @@ export function recordTranscription(seconds: number) {
   if (m) m.transcribedSeconds = (m.transcribedSeconds ?? 0) + seconds;
 }
 
+export function recordSpeech(chars: number) {
+  const m = current();
+  if (m) m.ttsChars = (m.ttsChars ?? 0) + chars;
+}
+
 export function recordTextUsage(usage?: { prompt_tokens?: number; completion_tokens?: number }) {
   const m = current();
   if (!m || !usage) return;
@@ -128,7 +141,12 @@ export function costOf(m: Metrics) {
   const text =
     (m.textTokensIn * PRICES.textInPerM + m.textTokensOut * PRICES.textOutPerM) / 1e6 +
     ((m.transcribedSeconds ?? 0) / 60) * 0.006;
-  const video = m.grokSeconds * PRICES.grokPerSecond + m.grokClips * PRICES.grokPerInputImage;
+  const video =
+    m.grokSeconds * PRICES.grokPerSecond +
+    m.grokClips * PRICES.grokPerInputImage +
+    (m.liteSeconds ?? 0) * PRICES.grokLitePerSecond +
+    (m.lipSyncSeconds ?? 0) * PRICES.klingLipSyncPerSecond +
+    ((m.ttsChars ?? 0) / 1000) * PRICES.ttsPer1kChars;
   return { images, text, video, total: images + text + video };
 }
 

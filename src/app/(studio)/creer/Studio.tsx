@@ -21,6 +21,8 @@ export type StudioStory = {
 type Props = {
   credits: number;
   monetized: boolean;
+  /** Admin : accès au moteur expérimental « doublage » */
+  admin?: boolean;
   defaultFormat: string;
   defaultCountry: string;
   dailyId: string;
@@ -93,6 +95,7 @@ export function Studio(p: Props) {
   const [episodes, setEpisodes] = useState(1);
   const [country, setCountry] = useState(p.defaultCountry);
   const [music, setMusic] = useState(true);
+  const [dub, setDub] = useState(false);
 
   const all = useMemo(() => new Map(p.tabs.flatMap((t) => t.stories).map((s) => [s.id, s])), [p.tabs]);
   const isIdea = tab === "idea";
@@ -110,6 +113,7 @@ export function Studio(p: Props) {
       <input type="hidden" name="format" value={format} />
       <input type="hidden" name="episodes" value={episodes} />
       {music && <input type="hidden" name="music" value="1" />}
+      {dub && <input type="hidden" name="engine" value="dub" />}
       {showCountry && <input type="hidden" name="country" value={country} />}
 
       {/* ---------- Bibliothèque ---------- */}
@@ -260,6 +264,16 @@ export function Studio(p: Props) {
             <input type="checkbox" checked={music} onChange={(e) => setMusic(e.target.checked)} />
             <i aria-hidden="true" />
           </label>
+
+          {p.admin && (
+            <label className="ed-switch">
+              <span>
+                <Icon name="star" size={15} /> Moteur doublage (test admin)
+              </span>
+              <input type="checkbox" checked={dub} onChange={(e) => setDub(e.target.checked)} />
+              <i aria-hidden="true" />
+            </label>
+          )}
 
           <div className="ed-foot">
           <div className="ed-sum">

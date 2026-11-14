@@ -15,15 +15,16 @@ async function insertVideo(
   episode: number,
   formatId: FormatId,
   music = true,
+  engine = "grok",
 ): Promise<number> {
   const f = FORMATS[formatId];
   if (!(await changeCredits(user.id, -f.credits, `Vidéo ${series.title} ép. ${episode}`))) {
     throw new UserError(`Crédits insuffisants : il faut ${f.credits} crédits. Recharge ou abonne-toi depuis la page Abonnement.`);
   }
   const row = await one<{ id: number }>(
-    `INSERT INTO videos (user_id, series_id, episode, format, seconds, credits_cost, mock, music)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-    [user.id, series.id, episode, formatId, f.seconds, f.credits, isMock(), music],
+    `INSERT INTO videos (user_id, series_id, episode, format, seconds, credits_cost, mock, music, engine)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+    [user.id, series.id, episode, formatId, f.seconds, f.credits, isMock(), music, engine === "dub" ? "dub" : "grok"],
   );
   await kickVideo(row!.id);
   return row!.id;
@@ -32,7 +33,7 @@ async function insertVideo(
 /** Création en un clic : histoire du catalogue OU pitch libre. Les réglages viennent du profil. */
 export async function createSeriesAndFirstVideo(
   user: User,
-  input: { storyId?: string; pitch?: string; formatId?: string; episodes?: number; country?: string; music?: boolean },
+  input: { storyId?: string; pitch?: string; formatId?: string; episodes?: number; country?: string; music?: boolean; engine?: string },
 ): Promise<number> {
   const story = input.storyId ? getStory(input.storyId) : undefined;
   const pitch = story?.pitch ?? input.pitch?.trim();
@@ -61,7 +62,7 @@ export async function createSeriesAndFirstVideo(
     [user.id, title, pitch, country, user.style, formatId, episodes, JSON.stringify(cast.map((c) => c.id))],
   ))!;
   try {
-    return await insertVideo(user, series, 1, formatId, input.music !== false);
+    return await insertVideo(user, series, 1, formatId, input.music !== false, input.engine);
   } catch (e) {
     await sql("DELETE FROM series WHERE id = $1", [series.id]);
     throw e;
@@ -78,19 +79,19 @@ export async function createNextEpisode(user: User, seriesId: number): Promise<n
   ))!;
   const next = (last.n ?? 0) + 1;
   if (next > series.episodes_total) throw new UserError("Tous les épisodes de cette série sont déjà créés.");
-  const prev = await one<{ music: boolean }>("SELECT music FROM videos WHERE series_id = $1 ORDER BY id DESC LIMIT 1", [seriesId]);
-  return insertVideo(user, series, next, series.format as FormatId, prev?.music ?? true);
+  const prev = await one<{ music: boolean; engine: string }>("SELECT music, engine FROM videos WHERE series_id = $1 ORDER BY id DESC LIMIT 1", [seriesId]);
+  return insertVideo(user, series, next, series.format as FormatId, prev?.music ?? true, prev?.engine);
 }
 
 /** Relance une vidéo échouée (recrédite déjà fait à l'échec, on redébite). */
 export async function retryVideo(user: User, videoId: number): Promise<number> {
-  const v = await one<{ id: number; status: string; series_id: number; episode: number; format: string }>(
+  const v = await one<{ id: number; status: string; series_id: number; episode: number; format: string; music: boolean; engine: string }>(
     "SELECT * FROM videos WHERE id = $1 AND user_id = $2",
     [videoId, user.id],
   );
   if (!v || (v.status !== "failed" && v.status !== "stopped")) throw new UserError("Cette vidéo ne peut pas être relancée.");
   const series = (await one<Series>("SELECT * FROM series WHERE id = $1", [v.series_id]))!;
-  return insertVideo(user, series, v.episode, v.format as FormatId);
+  return insertVideo(user, series, v.episode, v.format as FormatId, v.music, v.engine);
 }
 
 /** Part des crédits gardée si l'utilisateur arrête après le premier clip. */

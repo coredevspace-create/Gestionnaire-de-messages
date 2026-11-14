@@ -5,12 +5,13 @@ import { config, isMock } from "../config";
 import { changeCredits, one, sql, type Character, type Series, type Video } from "../db";
 import { getCountry, getStyle } from "../catalog/countries";
 import { fruitLabel } from "../catalog/characters";
-import { checkSceneImage, editImage, generateImage, transcribeWords, type Word } from "../ai/openai";
+import { checkSceneImage, editImage, generateImage, speak, transcribeWords, type Word } from "../ai/openai";
+import { checkLipSync, submitLipSync } from "../ai/kling";
 import { checkVideo, submitVideo } from "../ai/xai";
 import { mockClip, mockImage } from "../ai/mock";
 import { buildPlan, buildScript, type Scene, type Script, type SeriesPlan } from "../ai/script";
 import { getMedia, mediaExists, publicMediaUrl, putMedia } from "../storage";
-import { burnSubtitles, ffmpeg, joinWithTransitions, makeCover, mixAudio, normalizeClip, WHIP_SECONDS, type ClipFx } from "./ffmpeg";
+import { burnSubtitles, ffmpeg, joinWithTransitions, makeCover, mediaDuration, mixAudio, normalizeClip, tightenSpeech, WHIP_SECONDS, type ClipFx } from "./ffmpeg";
 import { pickTrack } from "../music";
 import { buildAss, coverAss, wordsToTimedLines, type TimedLine } from "./subtitles";
 import { emptyMetrics, parseMetrics, timed, withMetrics, type Metrics } from "../metrics";
@@ -151,6 +152,139 @@ ${speaker ? `Voice of ${speaker}: ${voiceFor(speaker, ctx)}, speaking ${lang}.` 
 ${others.length ? `${others.join(" and ")} stay${others.length > 1 ? "" : "s"} completely silent with mouth closed, only reacting with facial expressions.` : ""}
 Exactly one voice in this clip. No other words, no improvisation, no background chatter. Soft ambient sound only. No music, no subtitles, no text.
 Keep the characters identical to the first frame.`;
+}
+
+// ---------- Moteur « doublage » : voix OpenAI fixes + animation muette Grok Lite + lèvres Kling ----------
+
+const DUB_VIDEO_MODEL = process.env.XAI_DUB_MODEL || "grok-imagine-video-1.5-lite";
+
+/** Voix OpenAI distincte et fixe pour chaque personnage (déduite de sa description de voix). */
+function ttsVoices(ctx: Ctx): Record<string, string> {
+  const pools = {
+    femaleOld: ["sage", "coral", "shimmer", "nova"],
+    femaleYoung: ["nova", "shimmer", "coral", "sage"],
+    maleOld: ["onyx", "ash", "ballad", "echo"],
+    maleYoung: ["echo", "verse", "ash", "onyx"],
+  };
+  const used = new Set<string>();
+  const out: Record<string, string> = {};
+  for (const c of ctx.cast) {
+    const d = `${voiceFor(c.name, ctx)} ${c.role} ${c.look}`.toLowerCase();
+    const female = /(woman|girl|female|mother|wife|grand-?mother|lady|femme|fille|m[eè]re|[ée]pouse|soeur|sœur)/.test(d);
+    const old = /(old|elderly|middle-aged|mature|deep|grand|vieux|vieille|uncle|father|papa)/.test(d);
+    const pool = pools[`${female ? "female" : "male"}${old ? "Old" : "Young"}` as keyof typeof pools];
+    const v = pool.find((x) => !used.has(x)) ?? pool[0];
+    used.add(v);
+    out[c.name] = v;
+  }
+  return out;
+}
+
+async function makeVoices(ctx: Ctx) {
+  const voices = ttsVoices(ctx);
+  const country = getCountry(ctx.series.country);
+  const lang = country.id === "monde" ? "French from France" : `French with a natural accent from ${country.name}`;
+  const scenes = ctx.script!.scenes;
+  const todo = scenes.map((s, i) => (s.audioPath ? -1 : i)).filter((i) => i >= 0);
+  await parallel(todo, 4, async (i) => {
+    const s = scenes[i];
+    const line = s.lines[0];
+    if (!line) return;
+    const speaker = line.speaker.replace(/\s*\(pens[ée]e\)/i, "").trim();
+    const raw = await speak(
+      line.text,
+      voices[speaker] ?? "alloy",
+      `Character voice: ${voiceFor(speaker, ctx)}. Speak ${lang}. You are a dubbing actor in a fast-paced dramatic TV series: strong, believable emotion that matches the moment (${s.action}). Brisk delivery, no dramatic pauses, commas are only tiny breaths, the whole line flows in one go.`,
+    );
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `fs-voice-${ctx.video.id}-`));
+    let mp3 = raw;
+    try {
+      const a = path.join(dir, "raw.mp3");
+      const b = path.join(dir, "v.mp3");
+      fs.writeFileSync(a, raw);
+      try {
+        await tightenSpeech(a, b);
+        mp3 = fs.readFileSync(b);
+      } catch (e) {
+        console.warn(`[video ${ctx.video.id}] voix non raccourcie`, e);
+        fs.copyFileSync(a, b);
+      }
+      s.audioSeconds = Math.round((await mediaDuration(b)) * 100) / 100 || 2.5;
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    s.audioPath = await putMedia(`videos/${ctx.video.id}/voice-${i + 1}.mp3`, mp3);
+  });
+}
+
+function dubVideoPrompt(scene: Scene, ctx: Ctx) {
+  const line = scene.lines[0];
+  const speaker = line ? line.speaker.replace(/\s*\(pens[ée]e\)/i, "").trim() : "";
+  const others = scene.characters.filter((c) => c !== speaker);
+  return `One continuous single shot, no cuts, steady camera. ${scene.action}. Camera: ${scene.camera}.
+${speaker ? `${speaker} is the one talking in this moment: face clearly visible and turned toward the camera, mouth relaxed, expressive eyes and eyebrows matching the emotion.` : ""}
+${others.length ? `${others.join(" and ")} listen${others.length > 1 ? "" : "s"} and react${others.length > 1 ? "" : "s"} with facial expressions.` : ""}
+Silent clip: no speech, no dialogue, no music. Subtle natural body movement. Keep the characters identical to the first frame.`;
+}
+
+/** Durée du clip muet : la réplique + une petite marge (Kling : 2 à 10 s). */
+function dubSeconds(s: Scene) {
+  return Math.min(10, Math.max(3, Math.ceil((s.audioSeconds ?? 2.5) + 0.6)));
+}
+
+/**
+ * Fait avancer les `limit` premiers plans : clip muet Grok Lite → mise en 720p → Kling lip-sync.
+ * Renvoie true si au moins un plan attend encore un service.
+ */
+async function dubAdvance(ctx: Ctx, limit = Infinity): Promise<boolean> {
+  const scenes = ctx.script!.scenes;
+  let pending = false;
+  for (let i = 0; i < Math.min(limit, scenes.length); i++) {
+    const s = scenes[i];
+    if (s.clipPath) continue;
+    const secs = dubSeconds(s);
+    if (!s.baseClipPath && !s.videoRequestId) {
+      const imageUrl = publicMediaUrl(s.imagePath!) ?? `data:image/png;base64,${(await getMedia(s.imagePath!)).toString("base64")}`;
+      s.videoRequestId = await submitVideo({ prompt: dubVideoPrompt(s, ctx), imageUrl, seconds: secs, model: DUB_VIDEO_MODEL });
+      ctx.metrics.liteSeconds = (ctx.metrics.liteSeconds ?? 0) + secs;
+      pending = true;
+      continue;
+    }
+    if (!s.baseClipPath) {
+      const r = await checkVideo(s.videoRequestId!);
+      if (r.state === "pending") {
+        pending = true;
+        continue;
+      }
+      if (r.state === "failed") throw new Error(`Plan ${i + 1} : ${r.error}`);
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), `fs-dub-${ctx.video.id}-`));
+      try {
+        const raw = path.join(dir, "raw.mp4");
+        const out = path.join(dir, "base.mp4");
+        fs.writeFileSync(raw, r.data);
+        await normalizeClip(raw, out, secs); // 720x1280 : minimum demandé par Kling
+        s.baseClipPath = await putMedia(`videos/${ctx.video.id}/base-${i + 1}.mp4`, fs.readFileSync(out));
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    }
+    if (!s.lipSyncTaskId) {
+      const url = publicMediaUrl(s.baseClipPath);
+      if (!url) throw new Error("Kling a besoin d'une URL publique pour la vidéo (stockage Blob ou PUBLIC_BASE_URL).");
+      s.lipSyncTaskId = await submitLipSync({ videoUrl: url, audio: await getMedia(s.audioPath!) });
+      ctx.metrics.lipSyncSeconds = (ctx.metrics.lipSyncSeconds ?? 0) + secs;
+      pending = true;
+      continue;
+    }
+    const k = await checkLipSync(s.lipSyncTaskId);
+    if (k.state === "pending") {
+      pending = true;
+      continue;
+    }
+    if (k.state === "failed") throw new Error(`Plan ${i + 1} (lèvres) : ${k.error}`);
+    s.clipPath = await putMedia(`videos/${ctx.video.id}/clip-${i + 1}.mp4`, k.data);
+  }
+  return pending;
 }
 
 function sceneSeconds(ctx: Ctx): number[] {
@@ -414,6 +548,14 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
 
   const scenes = ctx.script.scenes;
   const n = scenes.length;
+  const dub = ctx.video.engine === "dub" && !isMock();
+
+  if (dub && scenes.some((s) => !s.audioPath && s.lines.length)) {
+    await setStep(id, "Voix des personnages");
+    await timed(ctx.metrics, "Voix", () => makeVoices(ctx));
+    await saveScript(ctx, "Voix prêtes");
+    return "progress";
+  }
 
   // Aperçu : le 1er plan est animé en premier et montré à l'utilisateur avant de payer le reste.
   if (!ctx.video.approved) {
@@ -424,11 +566,13 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
       await saveScript(ctx, "Image du premier plan prête");
       return "progress";
     }
-    if (!first.clipPath && !first.videoRequestId) {
+    if (!first.clipPath && !first.videoRequestId && !first.baseClipPath) {
       await setStep(id, "Animation du premier clip");
       if (isMock()) {
         const clip = await mockClip(await getMedia(first.imagePath), sceneSeconds(ctx)[0], `Plan 1 · ${first.characters.join(" & ")}`);
         first.clipPath = await putMedia(`videos/${id}/clip-1.mp4`, clip);
+      } else if (dub) {
+        await timed(ctx.metrics, "Animation", () => dubAdvance(ctx, 1));
       } else {
         await timed(ctx.metrics, "Animation", () => submitClips(ctx, 1));
       }
@@ -449,7 +593,7 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
 
   if (!ctx.video.approved) {
     if (!scenes[0].clipPath) {
-      const pending = await timed(ctx.metrics, "Animation", () => collectClips(ctx));
+      const pending = await timed(ctx.metrics, "Animation", () => (dub ? dubAdvance(ctx, 1) : collectClips(ctx)));
       await saveScript(ctx, "Animation du premier clip");
       if (pending) return "waiting";
     }
@@ -459,6 +603,12 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
   }
 
   if (scenes.some((s) => !s.clipPath)) {
+    if (dub) {
+      const pending = await timed(ctx.metrics, "Animation", () => dubAdvance(ctx));
+      const ready = scenes.filter((s) => s.clipPath).length;
+      await saveScript(ctx, `Animation et lèvres (${ready}/${n} plans prêts)`);
+      return pending ? "waiting" : "progress";
+    }
     if (isMock()) {
       const i = scenes.findIndex((s) => !s.clipPath);
       await setStep(id, `Animation du plan ${i + 1}/${n}`);
