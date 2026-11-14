@@ -13,12 +13,12 @@ function headers() {
   return { Authorization: `Bearer ${config.xaiKey}`, "Content-Type": "application/json" };
 }
 
-export async function submitVideo(opts: { prompt: string; imageUrl: string; seconds: number; model?: string }): Promise<string> {
+export async function submitVideo(opts: { prompt: string; imageUrl: string; seconds: number }): Promise<string> {
   const res = await fetch(`${BASE}/videos/generations`, {
     method: "POST",
     headers: headers(),
     body: JSON.stringify({
-      model: opts.model || config.xaiVideoModel,
+      model: config.xaiVideoModel,
       prompt: opts.prompt,
       image: { url: opts.imageUrl },
       duration: opts.seconds,

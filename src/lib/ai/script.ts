@@ -54,11 +54,6 @@ export type Scene = {
   /** Requête Grok en cours */
   videoRequestId?: string;
   clipPath?: string;
-  /** Moteur doublage : voix (MP3) et sa durée, clip muet 720p, tâche Kling en cours */
-  audioPath?: string;
-  audioSeconds?: number;
-  baseClipPath?: string;
-  lipSyncTaskId?: string;
 };
 export type Script = {
   title: string;

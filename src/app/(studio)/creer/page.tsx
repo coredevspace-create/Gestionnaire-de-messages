@@ -1,5 +1,5 @@
 import "./studio.css";
-import { isAdmin, requireUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { defaultFormat, EPISODE_CHOICES, FORMATS } from "@/lib/config";
 import { COUNTRIES, getCountry } from "@/lib/catalog/countries";
 import { STORIES, storiesFor, storyOfTheDay, WORLD_STORIES, type Story } from "@/lib/catalog/stories";
@@ -52,7 +52,6 @@ export default async function CreatePage() {
     <Studio
       credits={totalCredits(user)}
       monetized={!!user.monetized}
-      admin={isAdmin(user)}
       defaultFormat={defaultFormat(!!user.monetized, totalCredits(user))}
       defaultCountry={user.country}
       dailyId={daily.id}

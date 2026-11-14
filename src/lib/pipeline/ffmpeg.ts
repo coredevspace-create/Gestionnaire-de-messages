@@ -39,26 +39,6 @@ export async function hasAudio(file: string): Promise<boolean> {
   }
 }
 
-/** Durée d'un fichier audio/vidéo (s), lue dans la sortie de ffmpeg. */
-export async function mediaDuration(file: string): Promise<number> {
-  try {
-    await run(ffmpegBin(), ["-hide_banner", "-i", file]);
-  } catch (e) {
-    const m = /Duration: (\d+):(\d+):([\d.]+)/.exec((e as { stderr?: string }).stderr ?? "");
-    if (m) return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
-  }
-  return 0;
-}
-
-/** Voix de synthèse plus vive : raccourcit les longues pauses et accélère légèrement (sans changer la hauteur). */
-export async function tightenSpeech(input: string, output: string) {
-  await ffmpeg([
-    "-i", input,
-    "-af", "silenceremove=start_periods=1:start_threshold=-45dB:stop_periods=-1:stop_duration=0.25:stop_threshold=-45dB:stop_silence=0.15:detection=peak,atempo=1.1",
-    "-b:a", "128k", output,
-  ]);
-}
-
 /** Échappe un chemin pour une option de filtre ffmpeg. */
 export function filterPath(p: string): string {
   return p.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");

@@ -26,10 +26,7 @@ export function MetricsView({ m, seconds, credits }: { m: Metrics; seconds: numb
           <span>Images OpenAI : {$(c.images)} ({m.images} images{m.sheets ? `, dont ${m.sheets} portraits réutilisables` : ""})</span>
           <span>Texte (scénario + contrôle images) : {$(c.text)}</span>
           {!!m.rejectedImages && <span>Images refusées puis refaites : {m.rejectedImages}</span>}
-          <span>
-            Vidéo : {$(c.video)} (Grok {m.grokSeconds} s × {PRICES.grokPerSecond} $
-            {m.liteSeconds ? ` · Grok Lite ${m.liteSeconds} s · Kling ${m.lipSyncSeconds ?? 0} s · voix ${m.ttsChars ?? 0} car.` : ""})
-          </span>
+          <span>Vidéo Grok : {$(c.video)} ({m.grokSeconds} s × {PRICES.grokPerSecond} $)</span>
           <strong>Total : {$(c.total)}</strong>
           <span className="muted">
             Soit {$(c.total / Math.max(1, seconds))} par seconde de vidéo · {(c.total / Math.max(1, credits)).toFixed(3)} $ par crédit consommé

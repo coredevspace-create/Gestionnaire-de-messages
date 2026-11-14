@@ -1,5 +1,5 @@
 import { config } from "../config";
-import { recordImageUsage, recordSpeech, recordTextUsage, recordTranscription } from "../metrics";
+import { recordImageUsage, recordTextUsage, recordTranscription } from "../metrics";
 
 const BASE = "https://api.openai.com/v1";
 
@@ -223,27 +223,6 @@ export async function moderate(text: string): Promise<string[]> {
   } catch {
     return [];
   }
-}
-
-/**
- * Voix d'un personnage (synthèse vocale OpenAI) : même voix pour toute la série,
- * jeu d'acteur guidé par `instructions`. Renvoie un MP3. ~0,015 $ par minute.
- */
-export async function speak(text: string, voice: string, instructions: string): Promise<Buffer> {
-  const res = await call(`${BASE}/audio/speech`, {
-    method: "POST",
-    headers: headers({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      model: process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts",
-      voice,
-      input: text,
-      instructions,
-      response_format: "mp3",
-    }),
-  });
-  await check(res, "voix");
-  recordSpeech(text.length);
-  return Buffer.from(await res.arrayBuffer());
 }
 
 export type Word = { word: string; start: number; end: number };

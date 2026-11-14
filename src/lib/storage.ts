@@ -25,7 +25,7 @@ export function localMediaPath(rel: string) {
   return localPath(rel);
 }
 
-const TYPES: Record<string, string> = { ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp", ".mp3": "audio/mpeg" };
+const TYPES: Record<string, string> = { ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp" };
 
 /** Enregistre un fichier et renvoie sa référence (URL Blob ou chemin relatif). */
 /** Type réel d'un fichier d'après ses premiers octets (l'extension peut mentir). */

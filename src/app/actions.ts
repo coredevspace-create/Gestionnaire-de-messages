@@ -75,8 +75,6 @@ export async function createVideo(_: FormState, fd: FormData): Promise<FormState
       episodes: Number(str(fd, "episodes")) || undefined,
       country: str(fd, "country") || undefined,
       music: fd.get("music") !== null,
-      // Moteur expérimental (doublage) réservé à l'admin pendant les tests.
-      engine: isAdmin(user) && str(fd, "engine") === "dub" ? "dub" : "grok",
     });
   } catch (e) {
     if (e instanceof UserError) return { error: e.message };
