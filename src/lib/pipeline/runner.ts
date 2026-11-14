@@ -110,8 +110,8 @@ function scenePrompt(scene: Scene, ctx: Ctx) {
   const country = getCountry(ctx.series.country);
   const who = ctx.cast
     .filter((c) => scene.characters.includes(c.name))
-    .map((c) => `${c.name} (the ${c.fruit}-headed character)`)
-    .join(", ");
+    .map((c) => `${c.name} (head = ${c.fruit}; ${c.look})`)
+    .join("; ");
   return `ONE single cinematic still frame (the first frame of a vertical 9:16 movie shot), one continuous scene filling the whole image.
 STRICTLY FORBIDDEN: grid, panels, comic layout, split screen, collage, multiple frames, borders, insets, text, subtitles.
 Characters: ${who || "the characters from the reference images"}. The reference images only show what each character looks like: keep EXACTLY the same fruit head, face and outfit, but place them together in the new scene.

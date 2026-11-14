@@ -398,8 +398,8 @@ export const WORLD_STORIES: Story[] = [
       "Une bande de voyous provoque le vieux vigile d'un centre commercial et vole une boutique sous ses yeux. Ils ne savent pas que ce vigile est un ancien champion du monde de boxe, qui a juré de ne plus jamais se battre… sauf si on touche à un enfant.",
     cast: [],
     castSpec: [
-      { id: "vigile", name: "Papi Joe", fruit: "coconut", role: "vieux vigile ancien champion", look: "old calm security guard, uniform, cap, boxer hands" },
-      { id: "voyou", name: "Dylan", fruit: "grape", role: "chef des voyous", look: "cocky young thug, tracksuit, gold chain" },
+      { id: "vigile", name: "Papi Joe", fruit: "coconut", role: "vieux vigile ancien champion", look: "old calm security guard, uniform, cap, big strong bare hands of a former boxer (no gloves)" },
+      { id: "voyou", name: "Dylan", fruit: "grape", role: "chef des voyous", look: "cocky young thug whose head is ONE big round purple grape, purple tracksuit, gold chain" },
       { id: "enfant", name: "Petit Kiwi", fruit: "kiwi", role: "enfant", look: "small child, backpack, big eyes" },
     ],
     world: M,

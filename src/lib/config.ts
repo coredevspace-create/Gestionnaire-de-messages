@@ -40,8 +40,10 @@ export const FORMATS = {
 
 export type FormatId = keyof typeof FORMATS;
 
-export function defaultFormat(monetized: boolean): FormatId {
-  return monetized ? "long70" : "short20";
+/** 30 s par défaut (20 s est trop court pour une vraie histoire), 20 s seulement si les crédits ne suffisent pas. */
+export function defaultFormat(monetized: boolean, credits = Infinity): FormatId {
+  if (monetized && credits >= FORMATS.long70.credits) return "long70";
+  return credits >= FORMATS.short30.credits ? "short30" : "short20";
 }
 
 export const EPISODE_CHOICES = [1, 3, 5, 8] as const;

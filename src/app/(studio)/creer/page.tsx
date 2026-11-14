@@ -52,7 +52,7 @@ export default async function CreatePage() {
     <Studio
       credits={totalCredits(user)}
       monetized={!!user.monetized}
-      defaultFormat={defaultFormat(!!user.monetized)}
+      defaultFormat={defaultFormat(!!user.monetized, totalCredits(user))}
       defaultCountry={user.country}
       dailyId={daily.id}
       formats={Object.entries(FORMATS).map(([id, f]) => ({ id, label: f.label, seconds: f.seconds, credits: f.credits, kind: f.kind }))}

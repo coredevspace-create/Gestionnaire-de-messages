@@ -73,6 +73,13 @@ export type CharSpec = { id: string; name: string; fruit: string; role: string; 
 export async function getOrCreateSpecCharacter(storyId: string, spec: CharSpec, style: string, country = "monde"): Promise<Character> {
   const key = `story:${storyId}:${spec.id}:${style}`;
   const existing = await one<Character>("SELECT * FROM characters WHERE key = $1", [key]);
+  // Description modifiée dans le catalogue : on la met à jour et le portrait sera recréé.
+  if (existing && (existing.look !== spec.look || existing.fruit !== spec.fruit)) {
+    return (await one<Character>(
+      "UPDATE characters SET look = $2, fruit = $3, sheet_path = NULL WHERE id = $1 RETURNING *",
+      [existing.id, spec.look, spec.fruit],
+    ))!;
+  }
   if (existing) return existing;
   await one(
     `INSERT INTO characters (key, owner_id, country, style, name, fruit, role, look)

@@ -206,6 +206,8 @@ export async function buildScript(input: {
   injustice → révolte puis satisfaction ; pouvoir caché/exploit → incrédulité puis « waouh » ; drame familial → choc ; comédie → chute drôle.
   Phrase finale COURTE et percutante (8 mots max). Rien de vague (« tu vas voir… »).
 - Les répliques sont des paroles qu'un personnage dit À un autre (pas de description de la scène : jamais « le cadenas claque », « personne ne respire »).
+- Si l'histoire promet une ACTION (bagarre, K.O., gifle, fuite, objet trouvé), un plan la MONTRE dans son "action" avant la réplique
+  finale : on ne saute jamais le moment que le spectateur attend.
 - Le dernier plan donne la RÉPONSE, pas une promesse : on entend ce qui est révélé ou on voit ce qui arrive (« Le manoir est à Léa », pas « ce qu'elle reçoit va vous choquer »).
 - Interdits : phrases télégraphiques, énumérations, informations qui tombent du ciel, « Fin », narration, didascalies dans les répliques.
 - AUCUNE pensée intérieure ni voix off (le générateur vidéo fait toujours bouger les lèvres) : le secret passe par une confidence
