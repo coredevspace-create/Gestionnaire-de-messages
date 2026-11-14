@@ -8,7 +8,7 @@ import { fruitLabel } from "../catalog/characters";
 import { checkSceneImage, editImage, generateImage, transcribeWords, type Word } from "../ai/openai";
 import { checkVideo, submitVideo } from "../ai/xai";
 import { mockClip, mockImage } from "../ai/mock";
-import { buildPlan, buildScript, type Scene, type Script, type SeriesPlan } from "../ai/script";
+import { buildBeats, buildPlan, buildScript, type Scene, type Script, type SeriesPlan } from "../ai/script";
 import { getMedia, mediaExists, publicMediaUrl, putMedia } from "../storage";
 import { burnSubtitles, ffmpeg, joinWithTransitions, makeCover, mixAudio, normalizeClip, WHIP_SECONDS, type ClipFx } from "./ffmpeg";
 import { pickTrack } from "../music";
@@ -393,6 +393,24 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
       JSON.stringify(ctx.plan),
       ctx.plan.title || ctx.series.title,
     ]);
+    return "progress";
+  }
+
+  // Séquencier de l'épisode (structure de l'histoire), écrit avant les dialogues et gardé dans le plan de la série.
+  const epPlan = ctx.plan.episodes.find((e) => e.n === ctx.video.episode) ?? ctx.plan.episodes[0];
+  if (!ctx.script && epPlan && !epPlan.beats?.length) {
+    await setStep(id, "Construction de l'histoire");
+    const beats = await timed(ctx.metrics, "Scénario", () => buildBeats({
+      plan: ctx.plan!,
+      episode: ctx.video.episode,
+      countryId: ctx.series.country,
+      cast: ctx.cast,
+      seconds: ctx.video.seconds,
+      pitch: ctx.series.pitch,
+    }));
+    epPlan.beats = beats.length ? beats : ["(libre)"];
+    await saveMetrics(ctx);
+    await sql("UPDATE series SET plan_json = $2 WHERE id = $1", [ctx.series.id, JSON.stringify(ctx.plan)]);
     return "progress";
   }
 

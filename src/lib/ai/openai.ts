@@ -75,7 +75,12 @@ async function withModels<T>(kind: "image" | "text" | "writer", fn: (model: stri
 }
 
 /** Appel texte qui renvoie un objet JSON. */
-export async function chatJSON<T>(system: string, user: string, kind: "text" | "writer" = "text"): Promise<T> {
+export async function chatJSON<T>(
+  system: string,
+  user: string,
+  kind: "text" | "writer" = "text",
+  effort: "low" | "medium" | "high" = "low",
+): Promise<T> {
   return withModels(kind, async (model) => {
     const res = await call(`${BASE}/chat/completions`, {
       method: "POST",
@@ -83,7 +88,7 @@ export async function chatJSON<T>(system: string, user: string, kind: "text" | "
       body: JSON.stringify({
         model,
         // Raisonnement court : réponses plus rapides (évite les délais dépassés), qualité d'écriture inchangée.
-        ...(/^gpt-5/.test(model) ? { reasoning_effort: kind === "writer" ? "low" : "low" } : {}),
+        ...(/^gpt-5/.test(model) ? { reasoning_effort: effort } : {}),
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: system },

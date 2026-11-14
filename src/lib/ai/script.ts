@@ -32,7 +32,39 @@ MISE EN SCÈNE (comme une vraie série) :
   (« Bineta, c'est Fama, ma deuxième épouse »), pour que le spectateur sache tout de suite qui est qui.
 - Petits détails du quotidien local (plat, prière, marché, monnaie) pour que ça sonne vrai.`;
 
-export type EpisodePlan = { n: number; title: string; summary: string; cliffhanger: string };
+export type EpisodePlan = {
+  n: number;
+  title: string;
+  summary: string;
+  cliffhanger: string;
+  /** Ce que le spectateur sait et que la victime/le méchant ignore */
+  secret?: string;
+  /** Retournement de l'épisode (surprenant mais logique) */
+  twist?: string;
+  /** Séquencier : un moment par plan, écrit avant les dialogues */
+  beats?: string[];
+};
+
+/**
+ * Savoir-faire de scénariste (dramaturgie des mini-séries virales) : ce qui fait qu'on regarde jusqu'au bout.
+ * Utilisé par le plan de la série et par le séquencier.
+ */
+const STORY_CRAFT = `SAVOIR-FAIRE DE SCÉNARISTE (ce qui fait qu'on regarde jusqu'au bout) :
+- DÉSIR : dès les premières secondes, le spectateur VEUT quelque chose (que la vérité éclate, que le méchant paie, que le héros gagne)
+  et CRAINT quelque chose. Toute l'histoire joue avec ce désir.
+- IRONIE DRAMATIQUE : le spectateur apprend tôt un secret que la victime ou le méchant ignore (confidence chuchotée, appel, geste caché).
+- ESCALADE : chaque moment fait monter les enjeux (argent → honneur → famille → avenir). Le méchant devient de plus en plus odieux
+  et sûr de lui jusqu'à son sommet, juste avant sa chute. Jamais deux moments qui disent la même chose.
+- PLANTER / PAYER : un détail concret montré tôt (un objet, une phrase, une cicatrice, une caméra, un tatouage, un reçu) devient
+  la clé du retournement. Le spectateur se dit « mais oui, c'était là depuis le début ! ».
+- RETOURNEMENT : surprenant ET logique, impossible à deviner depuis le titre ou les premières secondes. En 60 s et plus :
+  double retournement (on croit avoir compris, puis ça va encore plus loin).
+- LE HÉROS AGIT : il gagne par un choix, un piège, une preuve, un courage — jamais sauvé par hasard ou par un inconnu.
+- ÉMOTION ET HUMOUR : au moins un moment touchant et une punchline drôle ou cinglante.
+- SPÉCIFICITÉ : détails concrets et locaux (« 300 000 francs », « le thieb du dimanche », « la Mercedes grise », « le bus de 6 h »)
+  plutôt que des généralités.
+- FIN : une image et une réplique mémorables (la sentence, la gifle verbale, la vérité dite en face). Épisode non final :
+  cliffhanger concret (quelqu'un entre, un objet est découvert, une phrase choc) — jamais « à suivre » ni une promesse vague.`;
 export type SeriesPlan = {
   title: string;
   episodes: EpisodePlan[];
@@ -103,8 +135,10 @@ export async function buildPlan(input: {
     `Tu es scénariste de mini-séries virales TikTok jouées par des personnages-fruits en 3D.
 Public : Afrique francophone (et diaspora). Ton : drôle, dramatique, rebondissements, punchlines.
 L'histoire doit être simple à suivre : un enjeu clair (argent, mariage, trahison, honte publique…), des personnages aux motivations évidentes.
-${VIRAL_FORMULA}
-Réponds UNIQUEMENT en JSON : {"title": string, "roles": {"<nom exact du personnage>": "<son rôle dans CETTE histoire>"}, "voices": {"<nom exact du personnage>": "<voice description in English>"}, "episodes": [{"n": number, "title": string, "summary": string, "cliffhanger": string}]}.
+${STORY_CRAFT}
+Réponds UNIQUEMENT en JSON : {"title": string, "roles": {"<nom exact du personnage>": "<son rôle dans CETTE histoire>"}, "voices": {"<nom exact du personnage>": "<voice description in English>"}, "episodes": [{"n": number, "title": string, "summary": string, "secret": string, "twist": string, "cliffhanger": string}]}.
+"secret" : ce que le spectateur apprend tôt et que la victime ou le méchant ignore. "twist" : le retournement de l'épisode
+(surprenant et logique). Avant de répondre, imagine 3 retournements possibles et garde le plus surprenant qui reste logique et fidèle au pitch.
 "roles" : le « casting » de la liste n'est qu'un type d'allure (âge, sexe, look). Donne à CHAQUE personnage son rôle réel
 dans le pitch (ex. "patron riche", "employé pauvre et honnête", "femme du patron"), en choisissant le personnage dont l'âge,
 le sexe et l'allure collent le mieux. N'ajoute AUCUN lien de parenté absent du pitch (un patron n'est pas le « papa » de son employé).
@@ -128,7 +162,55 @@ ${input.episodes === 1 ? "ÉPISODE UNIQUE : raconte l'histoire EN ENTIER, en ver
 Personnages :
 ${castText(input.cast)}`,
     "writer",
+    "medium",
   );
+}
+
+/**
+ * Séquencier d'un épisode : exactement un moment fort par plan, écrit AVANT les dialogues.
+ * C'est l'étape qui fait la qualité de l'histoire (structure, escalade, indice planté, retournement).
+ */
+export async function buildBeats(input: {
+  plan: SeriesPlan;
+  episode: number;
+  countryId: string;
+  cast: Character[];
+  seconds: number;
+  pitch: string;
+}): Promise<string[]> {
+  const sceneCount = Math.max(1, Math.round(input.seconds / config.clipSeconds));
+  const ep = input.plan.episodes.find((e) => e.n === input.episode) ?? input.plan.episodes[0];
+  if (isMock()) return Array.from({ length: sceneCount }, (_, i) => `Moment ${i + 1} : ${ep.summary}`);
+  const country = getCountry(input.countryId);
+  const last = ep.n >= input.plan.episodes.length;
+  const prev = input.plan.episodes.filter((e) => e.n < ep.n).map((e) => `Épisode ${e.n} : ${e.summary} (fin : ${e.cliffhanger})`).join("\n");
+  const res = await chatJSON<{ twists?: string[]; plant?: string; beats?: string[] }>(
+    `Tu es le showrunner d'une mini-série TikTok de personnages-fruits en 3D (épisodes très regardés, public francophone).
+Tu écris le SÉQUENCIER d'un épisode de ${input.seconds} s : exactement ${sceneCount} moments, un par plan de ~${(input.seconds / sceneCount).toFixed(0)} s.
+${STORY_CRAFT}
+STRUCTURE DE L'ÉPISODE (${sceneCount} moments) :
+- Moment 1 : ACCROCHE en plein conflit (on comprend qui, où et l'enjeu en une phrase).
+- Avant le moment ${Math.max(2, Math.round(sceneCount / 4))} : le SECRET est confié au spectateur, et l'INDICE (objet, phrase, détail) est planté.
+- Moments du milieu : ESCALADE avec au moins un renversement (le héros croit gagner puis perd, ou l'inverse).
+- ${last ? "Avant-derniers moments : le RETOURNEMENT, qui s'appuie sur l'indice planté. Dernier moment : la CHUTE complète, le méchant puni ou la vérité dite en face, avec la réaction." : "Dernier moment : CLIFFHANGER concret qui donne envie de voir l'épisode suivant (et l'épisode a déjà résolu quelque chose avant)."}
+${country.id === "monde" ? "UNIVERS MONDE : décors universels, argent en euros, prénoms courants, AUCUNE référence africaine (plats, monnaie, lieux).\n" : ""}CONTRAINTES DE TOURNAGE : chaque moment = UNE seule personne parle (1 réplique de 7 à 11 mots, phrase complète et naturelle), 1 ou 2 personnages visibles,
+alterne les personnes qui parlent (jamais la même trois fois de suite), le plus souvent en face-à-face,
+une action VISIBLE (geste, objet, expression). Pas de narrateur ni de pensée : un secret passe par une confidence ou un geste.
+Les personnes du pitch sans personnage dans la liste restent hors champ. Rôles et relations immuables, fidélité totale au pitch.
+Réponds UNIQUEMENT en JSON : {"twists": [3 idées de retournement], "plant": "l'indice planté tôt", "beats": [${sceneCount} chaînes]}.
+Chaque moment : « LIEU — QUI fait QUOI (geste visible) — QUI parle : idée précise de la réplique ».`,
+    `Pays : ${country.name} (${country.setting}).
+HISTOIRE (pitch, à respecter) : ${input.pitch}
+${prev ? `Déjà raconté :\n${prev}\n` : ""}Épisode ${ep.n}/${input.plan.episodes.length} : ${ep.title}
+Ce qui doit se passer : ${ep.summary}
+${ep.secret ? `Secret : ${ep.secret}\n` : ""}${ep.twist ? `Retournement prévu : ${ep.twist}\n` : ""}Fin : ${ep.cliffhanger}
+Personnages :
+${castText(input.cast, input.plan.roles)}`,
+    "writer",
+    "medium",
+  );
+  const beats = (res.beats ?? []).filter((b) => typeof b === "string" && b.trim());
+  return beats.length ? beats : [];
 }
 
 /** Débit de parole visé (mots par seconde) : sert à remplir chaque plan sans blanc. */
@@ -150,7 +232,8 @@ export async function buildScript(input: {
   pitch?: string;
 }): Promise<Script> {
   const sceneCount = Math.max(1, Math.round(input.seconds / config.clipSeconds));
-  const ep = input.plan.episodes.find((e) => e.n === input.episode) ?? input.plan.episodes[0];
+  const found = input.plan.episodes.find((e) => e.n === input.episode) ?? input.plan.episodes[0];
+  const ep = { ...found, beats: (found.beats ?? []).filter((b) => b !== "(libre)") };
   const perShot = input.seconds / sceneCount;
   const wordsMin = Math.round(perShot * WORDS_PER_SECOND * 0.8);
   const wordsMax = Math.round(perShot * WORDS_PER_SECOND * 1.3);
@@ -204,7 +287,7 @@ export async function buildScript(input: {
 - ARC : la tension monte jusqu'au dernier plan, qui contient le moment fort prévu par l'histoire (exploit, révélation, retournement
   ou cliffhanger), dit ou montré clairement, avec la réaction visible des autres. Adapte l'émotion au type d'histoire :
   injustice → révolte puis satisfaction ; pouvoir caché/exploit → incrédulité puis « waouh » ; drame familial → choc ; comédie → chute drôle.
-  Phrase finale COURTE et percutante (8 mots max). Rien de vague (« tu vas voir… »).
+  Phrase finale percutante et mémorable, mais toujours une phrase complète et naturelle. Rien de vague (« tu vas voir… »).
 - Les répliques sont des paroles qu'un personnage dit À un autre (pas de description de la scène : jamais « le cadenas claque », « personne ne respire »).
 - Si l'histoire promet une ACTION (bagarre, K.O., gifle, fuite, objet trouvé), un plan la MONTRE dans son "action" avant la réplique
   finale : on ne saute jamais le moment que le spectateur attend.
@@ -226,14 +309,15 @@ Réponds UNIQUEMENT en JSON : {"title": string, "logline": string, "mood": strin
 Épisode ${ep.n}/${input.plan.episodes.length} : ${ep.title}
 Ce qui doit se passer : ${ep.summary}
 Fin de l'épisode : ${ep.cliffhanger}
-Personnages disponibles :
+${ep.beats?.length ? `SÉQUENCIER (plan par plan — le plan N raconte le moment N, dans cet ordre ; écris la réplique et la mise en scène de chaque moment) :\n${ep.beats.map((b, i) => `${i + 1}. ${b}`).join("\n")}\n` : ""}Personnages disponibles :
 ${castText(input.cast, input.plan.roles)}`;
 
   const draft = await chatJSON<Script>(
     `Tu es le meilleur scénariste de mini-séries TikTok (personnages-fruits 3D, style ${style.prompt}).
 Tu écris un épisode de ${input.seconds} secondes que n'importe qui comprend du premier coup et regarde jusqu'au bout.
-Méthode : 1) relis l'histoire et les rôles : tu racontes CETTE histoire, rien d'autre ; 2) décide quel SECRET le spectateur apprend tôt ;
-3) écris la suite d'événements comme un vrai dialogue de film, répliques courtes qui s'enchaînent ; 4) découpe en plans (une réplique par plan).
+${ep.beats?.length
+  ? "Méthode : le SÉQUENCIER fourni est la structure validée par le showrunner. Plan N = moment N. Ton travail : des répliques vivantes, naturelles et percutantes (vraies paroles de gens qui se disputent, avec du caractère), et une mise en scène visuelle forte. Ne change ni l'ordre ni le contenu des moments."
+  : "Méthode : 1) relis l'histoire et les rôles : tu racontes CETTE histoire, rien d'autre ; 2) décide quel SECRET le spectateur apprend tôt ;\n3) écris la suite d'événements comme un vrai dialogue de film, répliques courtes qui s'enchaînent ; 4) découpe en plans (une réplique par plan)."}
 ${VIRAL_FORMULA}
 (Ces ressorts servent à rendre l'histoire prévue plus forte : ils ne remplacent jamais l'histoire ni les rôles.)
 ${rules}
