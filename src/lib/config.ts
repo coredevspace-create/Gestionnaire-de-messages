@@ -13,7 +13,7 @@ export const config = {
   xaiVideoModel: process.env.XAI_VIDEO_MODEL || "grok-imagine-video",
   xaiVideoResolution: process.env.XAI_VIDEO_RESOLUTION || "480p",
   // Plans courts = rythme plus dynamique (on ne paie que les secondes affichées)
-  clipSeconds: Number(process.env.CLIP_SECONDS || 5),
+  clipSeconds: Number(process.env.CLIP_SECONDS || 4),
   // Crédits offerts : de quoi faire UNE vidéo de 20 s (80) — le reste ne suffit pas pour une 2e.
   starterCredits: Number(process.env.STARTER_CREDITS || 100),
   adminEmails: (process.env.ADMIN_EMAILS || "")

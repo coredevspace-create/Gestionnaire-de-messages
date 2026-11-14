@@ -82,10 +82,11 @@ Réponds UNIQUEMENT en JSON : {"title": string, "voices": {"<nom exact du person
 "voices" : une voix TRÈS distincte pour chaque personnage (sexe, âge, timbre, grave/aigu, rythme), ex. "elderly woman, low raspy authoritative voice, slow".
 FIDÉLITÉ : le pitch est la vérité. Découpe SES événements, dans SON ordre, sur les épisodes. N'invente aucune autre intrigue
 (dette, chantage, vol, vidéo, licenciement…) qui n'y est pas. Les rôles et relations des personnages ne changent JAMAIS.
-Épisode 1 = le début du pitch (la situation de départ et son premier moment fort), pas un résumé de toute l'histoire.
+IL DOIT SE PASSER QUELQUE CHOSE DANS CHAQUE ÉPISODE : chaque épisode contient au moins UN événement concret et sa conséquence
+(une révélation dite clairement, un exploit, une humiliation retournée, une décision). Jamais un épisode de pure mise en place.
 Chaque épisode = UNE scène filmable : un lieu, les personnages concernés, ce qui s'y passe concrètement,
 et le moment fort de la fin. "summary" décrit cette scène en 2 phrases concrètes (qui, où, quoi).
-Chaque épisode (sauf le dernier) finit sur un suspense fort et précis. Le dernier épisode finit sur une chute drôle ou choquante (pas "Fin").
+Chaque épisode (sauf le dernier) : un événement résolu PUIS un nouveau suspense précis à la toute fin. Le dernier épisode : la chute complète.
 Les épisodes s'enchaînent : chacun reprend exactement là où le précédent s'est arrêté.`,
     `Pays : ${country.name} (${country.setting}).
 Titre : ${input.title}
@@ -93,7 +94,7 @@ Pitch : ${input.pitch}
 Nombre d'épisodes : ${input.episodes}
 Durée de chaque épisode : ${input.seconds ?? 30} secondes. Chaque "summary" ne décrit qu'UNE situation simple qui tient dans cette durée
 (en ${input.seconds ?? 30} s : 3 à ${Math.max(3, Math.round((input.seconds ?? 30) / 6))} répliques). Si l'histoire est longue, garde le reste pour les épisodes suivants.
-${input.episodes === 1 ? "Épisode unique : raconte seulement le début accrocheur de l'histoire et coupe sur un suspense." : ""}
+${input.episodes === 1 ? "ÉPISODE UNIQUE : raconte l'histoire EN ENTIER, en version courte : la situation, l'injustice ou le défi, ET la chute (le secret révélé, l'exploit, la revanche). Le spectateur doit voir la fin. Pas de « à suivre »." : ""}
 Personnages :
 ${castText(input.cast)}`,
     "writer",
@@ -177,6 +178,8 @@ export async function buildScript(input: {
   ou cliffhanger), dit ou montré clairement, avec la réaction visible des autres. Adapte l'émotion au type d'histoire :
   injustice → révolte puis satisfaction ; pouvoir caché/exploit → incrédulité puis « waouh » ; drame familial → choc ; comédie → chute drôle.
   Phrase finale COURTE et percutante (8 mots max). Rien de vague (« tu vas voir… »).
+- Les répliques sont des paroles qu'un personnage dit À un autre (pas de description de la scène : jamais « le cadenas claque », « personne ne respire »).
+- Le dernier plan donne la RÉPONSE, pas une promesse : on entend ce qui est révélé ou on voit ce qui arrive (« Le manoir est à Léa », pas « ce qu'elle reçoit va vous choquer »).
 - Interdits : phrases télégraphiques, énumérations, informations qui tombent du ciel, « Fin », narration, didascalies dans les répliques.
 - Pensée intérieure possible : speaker = "Prénom (pensée)" (au plus une par épisode).
 - "characters" et "speaker" : EXACTEMENT les noms de la liste fournie.
@@ -213,7 +216,7 @@ Lis-le comme un spectateur qui ne connaît RIEN de l'histoire et n'a que les ima
 HISTOIRE PRÉVUE (référence) : ${brief}
 Note sur 10 (champ "score") selon : FIDÉLITÉ à l'histoire prévue et aux rôles (note max 4 si une intrigue est inventée ou un rôle
 inversé — dans ce cas réécris pour coller à l'histoire), clarté de la situation dès le plan 1, émotion adaptée, logique réplique après réplique,
-tension qui monte, retournement net et compréhensible à la fin, dialogue naturel, absence de blancs (${wordsMin}-${wordsMax} mots par plan).
+tension qui monte, IL SE PASSE QUELQUE CHOSE (note max 5 si l'épisode n'est qu'une mise en place sans chute ou finit sur une promesse vague), retournement net et compréhensible à la fin, dialogue naturel, absence de blancs (${wordsMin}-${wordsMax} mots par plan).
 Vérifie aussi : exactement UNE réplique par plan, d'un seul personnage, les orateurs alternent. Liste les défauts dans "problems". Puis renvoie la version CORRIGÉE de l'épisode (même format, ${sceneCount} plans, mêmes noms) :
 si la note est < 8, réécris franchement le dialogue pour atteindre 9/10 en gardant l'idée.
 ${rules}`,
