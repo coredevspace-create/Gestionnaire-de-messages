@@ -122,7 +122,7 @@ export const STYLES = {
   fruits3d: {
     label: "Fruits 3D",
     prompt:
-      "cinematic 3D animation, Pixar-like quality, anthropomorphic characters with a realistic fruit as the head and human body wearing clothes, expressive faces, warm cinematic lighting, vertical 9:16 framing",
+      "cinematic 3D animated film, Pixar-like quality. Each character's ENTIRE head is the fruit itself (fruit shape, color and skin texture) with a stylized cartoon face: big expressive eyes, eyebrows, simple mouth. Never a human face or human skin on the head, no beards. Human-like bodies wearing clothes. Warm cinematic lighting, shallow depth of field, vertical 9:16 framing",
   },
 } as const;
 

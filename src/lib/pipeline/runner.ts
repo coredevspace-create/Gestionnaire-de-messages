@@ -37,7 +37,7 @@ type Ctx = {
 };
 
 /** Version des portraits de référence : changer la valeur force leur régénération. */
-const SHEET_VERSION = "portrait-v2";
+const SHEET_VERSION = "portrait-v3";
 
 export function sheetIsCurrent(c: Character) {
   return !!c.sheet_path && c.sheet_path.includes(SHEET_VERSION);
@@ -92,7 +92,7 @@ export async function makeSheet(c: Character, quality = process.env.OPENAI_PORTR
     png = await mockImage(`Portrait · ${c.name}`, `${fruitLabel(c.fruit)} — ${c.role}\n${country.name}`);
   } else {
     png = await generateImage(
-      `Single full-body character portrait of ONE character: ${c.name}, an anthropomorphic character whose head is a realistic ${c.fruit} with an expressive face, human body. ${c.look}.${country.id === "monde" ? "" : ` Culture: ${country.name}.`}
+      `Single full-body character portrait of ONE character: ${c.name}, a cartoon character whose ENTIRE head IS a ${c.fruit} (the fruit's own shape, color and skin texture), with a stylized Pixar-like face sculpted into the fruit: big expressive cartoon eyes, eyebrows, a simple mouth. NOT a human head: no human skin, no human nose or wrinkles, no beard, no human hair (only the fruit's stem or leaves, or a headwrap/hat). Human-like body wearing clothes. ${c.look}.${country.id === "monde" ? "" : ` Culture: ${country.name}.`}
 Standing, front three-quarter view, neutral friendly expression, whole body visible from head to feet, centered.
 ONE single image of ONE character only: no grid, no panels, no multiple views, no collage, no turnaround, no text. Plain light grey studio background.
 Style: ${style.prompt}`,
@@ -143,7 +143,7 @@ function videoPrompt(scene: Scene, ctx: Ctx) {
     ? "Nobody speaks."
     : thought
       ? `ONLY ${speaker} speaks, whispering to themself, barely moving the lips: "${line.text}"`
-      : `ONLY ${speaker} speaks, lips moving. Calm, unhurried delivery: half a second of silence, then the line at a slow conversational pace with natural pauses and strong emotion: "${line.text}"`;
+      : `ONLY ${speaker} speaks, lips moving. Starts speaking right away, natural lively conversational pace (like a real TV drama), clear articulation, strong emotion, the whole line fits in the clip: "${line.text}"`;
   return `One continuous single shot, no cuts, steady camera. ${scene.action}. Camera: ${scene.camera}.
 Strong, natural facial acting that matches the emotion of the line (eyes, eyebrows, mouth).
 ${speech}

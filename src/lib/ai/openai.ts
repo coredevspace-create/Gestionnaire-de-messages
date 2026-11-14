@@ -186,7 +186,7 @@ export async function editImage(
   prompt: string,
   refs: Buffer[],
   size = "1024x1536",
-  quality = process.env.OPENAI_SCENE_QUALITY || "low",
+  quality = process.env.OPENAI_SCENE_QUALITY || "medium",
 ): Promise<Buffer> {
   return withModels("image", async (model) => {
     const form = new FormData();

@@ -18,7 +18,9 @@ const VIRAL_FORMULA = `CE QUI REND LES VIDÉOS VIRALES CAPTIVANTES (analyse de v
 4. CHOIX MORAL du héros, puis TRAHISON ou piège d'un tiers (révélé par une confidence ou un geste visible).
 5. INJUSTICE : le héros est accusé ou humilié à tort, devant les autres. Le spectateur, qui sait la vérité, est révolté.
 6. CONFRONTATION puis RÉVÉLATION / PREUVE (caméra, témoin, papier) ou cliffhanger juste au moment de la preuve.
-Forme : répliques COURTES (5 à 10 mots), qui s'enchaînent vite, émotions fortes (cris, supplications, rires mauvais).
+Forme : répliques de 7 à 11 mots, PHRASES COMPLÈTES et naturelles (sujet, verbe, articles), comme on parle vraiment
+(« Vingt ans que je cuisine pour toi, et tu ramènes ça dans ma cour ? »). JAMAIS de style télégraphique (« Toi lunettes café » est interdit).
+Elles s'enchaînent vite, avec des émotions fortes (cris, supplications, rires mauvais).
 Plusieurs lieux et moments si besoin (le bureau, puis la maison le soir, puis le lendemain) : on change de décor d'un plan à l'autre.
 Ton : familier, naturel, mots simples, toujours compréhensible.
 MISE EN SCÈNE (comme une vraie série) :
@@ -130,7 +132,7 @@ ${castText(input.cast)}`,
 }
 
 /** Débit de parole visé (mots par seconde) : sert à remplir chaque plan sans blanc. */
-const WORDS_PER_SECOND = 2.3;
+const WORDS_PER_SECOND = 2.8;
 
 /** Exemple de référence (qualité attendue) montré au scénariste. */
 const GOLD_EXAMPLE = `EXEMPLE DE RÉFÉRENCE (~30 s, 10 plans, une réplique courte par plan, 1 ou 2 personnages par plan) — imite cette MÉCANIQUE (accroche, secret confié au spectateur par une confidence, objet clé, trahison, injustice, preuve) et cette MISE EN SCÈNE, pas cette histoire :
@@ -151,7 +153,7 @@ export async function buildScript(input: {
   const ep = input.plan.episodes.find((e) => e.n === input.episode) ?? input.plan.episodes[0];
   const perShot = input.seconds / sceneCount;
   const wordsMin = Math.round(perShot * WORDS_PER_SECOND * 0.8);
-  const wordsMax = Math.round(perShot * WORDS_PER_SECOND * 1.35);
+  const wordsMax = Math.round(perShot * WORDS_PER_SECOND * 1.3);
 
   if (isMock()) {
     return {
