@@ -9,14 +9,18 @@ import { chatJSON } from "./openai";
  * personnages sous-estimés, injustice révoltante, test moral, pouvoir/secret caché,
  * enjeux énormes, et arrêt net au moment le plus intense.
  */
-const VIRAL_FORMULA = `FORMULE VIRALE À APPLIQUER :
-1. ACCROCHE (0-3 s) : une image ou une phrase choc immédiate (exploit impossible, humiliation, menace, chiffre énorme). Jamais d'introduction lente.
-2. EMPATHIE : un héros sympathique et sous-estimé (pauvre, humble, honnête, « le nouveau », le cousin du village) face à un méchant arrogant ou fourbe.
-3. INJUSTICE / TEST : humiliation, trahison, vol, mensonge, ou test moral secret (le patron/la belle-famille teste quelqu'un). Le spectateur doit être révolté.
-4. SECRET : quelque chose que le méchant ignore (le héros est riche en secret, a un pouvoir, a une preuve filmée, est le vrai propriétaire…). On peut révéler une PENSÉE intérieure pour mettre le spectateur dans la confidence.
-5. ESCALADE : chaque plan monte d'un cran (enjeux énormes, chiffres précis : « 5 millions », « 300 tonnes »).
-6. ARRÊT NET au moment le plus intense (juste avant la révélation ou la riposte) → le spectateur veut la suite.
-Ton : familier et vivant, comme de vrais gens qui parlent, avec des mots simples. Toujours compréhensible.`;
+const VIRAL_FORMULA = `CE QUI REND LES VIDÉOS VIRALES CAPTIVANTES (analyse de vidéos à succès) — applique cette MÉCANIQUE :
+1. ACCROCHE IMMÉDIATE : la toute première réplique pose l'enjeu (« Le jour de paie est arrivé ! », « Tu m'as trompé ! »).
+2. IRONIE DRAMATIQUE (le plus important) : TRÈS TÔT, le spectateur apprend un secret que la victime ou le méchant ignore,
+   par une confidence à un proche (« J'ai mis trop d'argent exprès pour le tester ») ou une PENSÉE intérieure (« Cet argent est pour moi »).
+   Le spectateur en sait plus que les personnages : c'est ce qui le scotche.
+3. DILEMME du héros, dit en pensée intérieure (« Ma mère est malade… mais ce n'est pas comme ça qu'elle m'a élevé »).
+4. CHOIX MORAL du héros, puis TRAHISON ou piège d'un tiers (souvent révélé par sa pensée intérieure).
+5. INJUSTICE : le héros est accusé ou humilié à tort, devant les autres. Le spectateur, qui sait la vérité, est révolté.
+6. CONFRONTATION puis RÉVÉLATION / PREUVE (caméra, témoin, papier) ou cliffhanger juste au moment de la preuve.
+Forme : répliques COURTES (5 à 10 mots), qui s'enchaînent vite, émotions fortes (cris, supplications, rires mauvais).
+Plusieurs lieux et moments si besoin (le bureau, puis la maison le soir, puis le lendemain) : on change de décor d'un plan à l'autre.
+Ton : familier, naturel, mots simples, toujours compréhensible.`;
 
 export type EpisodePlan = { n: number; title: string; summary: string; cliffhanger: string };
 export type SeriesPlan = {
@@ -102,20 +106,12 @@ ${castText(input.cast)}`,
 }
 
 /** Débit de parole visé (mots par seconde) : sert à remplir chaque plan sans blanc. */
-const WORDS_PER_SECOND = 1.8;
+const WORDS_PER_SECOND = 2.3;
 
 /** Exemple de référence (qualité attendue) montré au scénariste. */
-const GOLD_EXAMPLE = `EXEMPLE DE RÉFÉRENCE (20 s, 4 plans, UNE réplique par plan) — imite ce niveau de clarté et de tension, pas son histoire :
-{"title":"Le test du patron","logline":"Accusé de vol par son patron, l'employé révèle que la vraie voleuse est la femme du patron.","mood":"suspense",
-"scenes":[
-{"characters":["M. Mangue","Kouassi"],"setting":"small shop office, cash box open and empty","action":"M. Mangue, furious, slams the empty cash box on the desk and points at Kouassi; Kouassi stays silent, shocked","camera":"medium shot on M. Mangue",
- "lines":[{"speaker":"M. Mangue","text":"Kouassi, il manque cinq cent mille francs dans ma caisse !"}]},
-{"characters":["Kouassi","M. Mangue"],"setting":"same office","action":"Kouassi raises his hands, pleading; M. Mangue listens silently, arms crossed","camera":"medium close-up on Kouassi",
- "lines":[{"speaker":"Kouassi","text":"Patron, je vous jure que je n'ai jamais touché à votre argent."}]},
-{"characters":["M. Mangue","Kouassi"],"setting":"same office","action":"M. Mangue shoves the register with a signature in Kouassi's face; Kouassi stares at it silently","camera":"medium shot",
- "lines":[{"speaker":"M. Mangue","text":"Alors pourquoi ta signature est sur le registre, menteur ?"}]},
-{"characters":["Kouassi","M. Mangue"],"setting":"same office","action":"Kouassi turns his phone toward M. Mangue: a camera video shows a woman taking the money; M. Mangue freezes, mouth open, silent","camera":"close-up on Kouassi holding the phone",
- "lines":[{"speaker":"Kouassi","text":"Regardez la caméra du magasin, patron. C'est votre propre femme."}]}]}`;
+const GOLD_EXAMPLE = `EXEMPLE DE RÉFÉRENCE (~30 s, 10 plans, une réplique courte par plan) — imite cette MÉCANIQUE (accroche, secret confié au spectateur, trahison en pensée, injustice, preuve), pas cette histoire :
+{"title": "Le collier du patron", "logline": "Le patron teste son chauffeur avec un collier, mais c'est son propre fils qui le vole et accuse le chauffeur.", "mood": "suspense", "scenes": [{"characters": ["Mme Mangue", "Kouassi"], "setting": "luxury car parked in front of a villa", "action": "Mme Mangue leaves a diamond necklace on the back seat and points a finger at Kouassi, the driver", "camera": "medium shot", "lines": [{"speaker": "Mme Mangue", "text": "Chauffeur, ce collier vaut dix millions, n'y touche pas."}]}, {"characters": ["M. Mangue", "Mme Mangue"], "setting": "villa living room, evening", "action": "M. Mangue whispers to his wife with a sly smile", "camera": "close-up on M. Mangue", "lines": [{"speaker": "M. Mangue", "text": "Je l'ai laissé exprès pour tester Kouassi, chérie."}]}, {"characters": ["Junior"], "setting": "villa hallway, behind a door", "action": "Junior, the son, listens behind the door, eyes narrowing greedily", "camera": "close-up on Junior", "lines": [{"speaker": "Junior (pensée)", "text": "Si le collier disparaît, c'est le chauffeur qu'on accusera."}]}, {"characters": ["Kouassi", "Junior"], "setting": "villa garage at night", "action": "Kouassi hands the shining necklace to Junior, relieved and honest", "camera": "medium shot", "lines": [{"speaker": "Kouassi", "text": "Monsieur Junior, votre mère a oublié son collier."}]}, {"characters": ["Junior", "Kouassi"], "setting": "villa garage at night", "action": "Junior snatches the necklace and pats Kouassi's shoulder with a fake smile", "camera": "medium shot", "lines": [{"speaker": "Junior", "text": "Merci Kouassi, je le lui rends tout de suite."}]}, {"characters": ["Junior"], "setting": "Junior's bedroom", "action": "Junior hides the necklace in his bag, smirking", "camera": "close-up on the bag", "lines": [{"speaker": "Junior (pensée)", "text": "Ce collier va payer toutes mes dettes."}]}, {"characters": ["M. Mangue", "Kouassi"], "setting": "villa courtyard, next morning", "action": "M. Mangue grabs Kouassi by the collar in front of the staff", "camera": "medium shot", "lines": [{"speaker": "M. Mangue", "text": "Kouassi, le collier a disparu. C'est toi le voleur ?"}]}, {"characters": ["Kouassi", "M. Mangue"], "setting": "villa courtyard", "action": "Kouassi raises his hands, desperate, tears in his eyes", "camera": "close-up on Kouassi", "lines": [{"speaker": "Kouassi", "text": "Patron, je l'ai donné à votre fils hier soir !"}]}, {"characters": ["Junior", "M. Mangue", "Kouassi"], "setting": "villa courtyard", "action": "Junior steps in, pointing at Kouassi with fake outrage", "camera": "medium shot", "lines": [{"speaker": "Junior", "text": "Il ment, papa ! Je n'ai jamais vu ce collier !"}]}, {"characters": ["Kouassi", "M. Mangue", "Junior"], "setting": "villa courtyard", "action": "Kouassi points at the small camera on the car's dashboard; Junior freezes, pale", "camera": "close-up on the dashboard camera", "lines": [{"speaker": "Kouassi", "text": "Regardez la caméra de la voiture, patron."}]}]}
+Pour 20 s : garde accroche → secret → retournement en 5-7 plans. Pour 70 s : déroule toutes les étapes avec plus de rebondissements.`;
 
 export async function buildScript(input: {
   plan: SeriesPlan;
@@ -131,7 +127,7 @@ export async function buildScript(input: {
   const ep = input.plan.episodes.find((e) => e.n === input.episode) ?? input.plan.episodes[0];
   const perShot = input.seconds / sceneCount;
   const wordsMin = Math.round(perShot * WORDS_PER_SECOND * 0.8);
-  const wordsMax = Math.round(perShot * WORDS_PER_SECOND * 1.05);
+  const wordsMax = Math.round(perShot * WORDS_PER_SECOND * 1.35);
 
   if (isMock()) {
     return {
@@ -163,7 +159,7 @@ export async function buildScript(input: {
 
   const rules = `CONTRAINTES :
 - Exactement ${sceneCount} plans de ~${perShot.toFixed(0)} s, format vertical. ${world}
-- UNE SEULE SCÈNE : même lieu, temps continu, les mêmes 2 personnages principaux (un 3e au maximum, seulement s'il est indispensable).
+- 2 à 4 personnages, 1 à 4 lieux. Le temps peut avancer entre deux plans (on le comprend par le décor et les répliques, sans narrateur).
 - UNE SEULE RÉPLIQUE PAR PLAN, dite par UN SEUL personnage (le générateur vidéo ne sait faire qu'une voix par plan).
   Les autres personnages du plan écoutent en silence (bouche fermée) et réagissent par le visage.
   Les plans alternent les personnages qui parlent, comme un champ/contrechamp : A, puis B, puis A…
@@ -172,7 +168,8 @@ export async function buildScript(input: {
   N'invente AUCUNE autre intrigue (pas de dette, de chantage, de vidéo, de vol, de licenciement… s'ils ne sont pas dans l'histoire).
 - RÔLES IMMUABLES : chaque personnage garde le rôle indiqué dans la liste (un ami reste un ami, un patron reste un patron).
   Le personnage qui s'oppose au héros est celui que l'histoire désigne, jamais un autre.
-- Plan 1 : on comprend tout de suite la situation de CET épisode (qui, où, ce qui se passe), avec une image forte.
+- Plan 1 : accroche, on comprend tout de suite la situation (qui, où, ce qui se passe), avec une image forte.
+- Dans le premier quart de l'épisode : le spectateur apprend le secret (ironie dramatique).
 - Chaque réplique répond directement à la précédente ou à ce qu'on vient de voir. Aucune information qui tombe du ciel.
 - ARC : la tension monte jusqu'au dernier plan, qui contient le moment fort prévu par l'histoire (exploit, révélation, retournement
   ou cliffhanger), dit ou montré clairement, avec la réaction visible des autres. Adapte l'émotion au type d'histoire :
@@ -181,7 +178,7 @@ export async function buildScript(input: {
 - Les répliques sont des paroles qu'un personnage dit À un autre (pas de description de la scène : jamais « le cadenas claque », « personne ne respire »).
 - Le dernier plan donne la RÉPONSE, pas une promesse : on entend ce qui est révélé ou on voit ce qui arrive (« Le manoir est à Léa », pas « ce qu'elle reçoit va vous choquer »).
 - Interdits : phrases télégraphiques, énumérations, informations qui tombent du ciel, « Fin », narration, didascalies dans les répliques.
-- Pensée intérieure possible : speaker = "Prénom (pensée)" (au plus une par épisode).
+- Pensées intérieures (speaker = "Prénom (pensée)") : utilise-les pour l'ironie dramatique et le dilemme (1 à 3 par épisode).
 - "characters" et "speaker" : EXACTEMENT les noms de la liste fournie.
 - "setting", "action", "camera" en ANGLAIS. "action" décrit ce qu'on VOIT : le geste, l'objet clé visible, et la réaction de l'autre.
 - "mood" parmi : suspense, drame, emotion, action, comedie, triomphe.
@@ -197,8 +194,8 @@ ${castText(input.cast)}`;
   const draft = await chatJSON<Script>(
     `Tu es le meilleur scénariste de mini-séries TikTok (personnages-fruits 3D, style ${style.prompt}).
 Tu écris un épisode de ${input.seconds} secondes que n'importe qui comprend du premier coup et regarde jusqu'au bout.
-Méthode : 1) relis l'histoire et les rôles : tu racontes CETTE histoire, rien d'autre ; 2) écris la scène comme un vrai dialogue de film,
-naturel, avec des répliques qui s'enchaînent ; 3) découpe-la en plans.
+Méthode : 1) relis l'histoire et les rôles : tu racontes CETTE histoire, rien d'autre ; 2) décide quel SECRET le spectateur apprend tôt ;
+3) écris la suite d'événements comme un vrai dialogue de film, répliques courtes qui s'enchaînent ; 4) découpe en plans (une réplique par plan).
 ${VIRAL_FORMULA}
 (Ces ressorts servent à rendre l'histoire prévue plus forte : ils ne remplacent jamais l'histoire ni les rôles.)
 ${rules}
@@ -214,7 +211,7 @@ ${GOLD_EXAMPLE}`,
       `Tu es script doctor exigeant. On te donne un épisode TikTok de ${input.seconds} s en JSON.
 Lis-le comme un spectateur qui ne connaît RIEN de l'histoire et n'a que les images et les répliques.
 HISTOIRE PRÉVUE (référence) : ${brief}
-Note sur 10 (champ "score") selon : FIDÉLITÉ à l'histoire prévue et aux rôles (note max 4 si une intrigue est inventée ou un rôle
+Note sur 10 (champ "score") selon : présence d'IRONIE DRAMATIQUE (le spectateur sait un secret tôt), FIDÉLITÉ à l'histoire prévue et aux rôles (note max 4 si une intrigue est inventée ou un rôle
 inversé — dans ce cas réécris pour coller à l'histoire), clarté de la situation dès le plan 1, émotion adaptée, logique réplique après réplique,
 tension qui monte, IL SE PASSE QUELQUE CHOSE (note max 5 si l'épisode n'est qu'une mise en place sans chute ou finit sur une promesse vague), retournement net et compréhensible à la fin, dialogue naturel, absence de blancs (${wordsMin}-${wordsMax} mots par plan).
 Vérifie aussi : exactement UNE réplique par plan, d'un seul personnage, les orateurs alternent. Liste les défauts dans "problems". Puis renvoie la version CORRIGÉE de l'épisode (même format, ${sceneCount} plans, mêmes noms) :
