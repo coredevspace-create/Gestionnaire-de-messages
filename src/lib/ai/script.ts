@@ -28,6 +28,8 @@ export type SeriesPlan = {
   episodes: EpisodePlan[];
   /** Voix de chaque personnage (description en anglais), identique pour toute la série */
   voices?: Record<string, string>;
+  /** Rôle réel de chaque personnage dans CETTE histoire (le rôle du casting n'est qu'un type d'allure) */
+  roles?: Record<string, string>;
 };
 
 export type Line = { speaker: string; text: string };
@@ -50,9 +52,13 @@ export type Script = {
   scenes: Scene[];
 };
 
-function castText(cast: Character[]) {
+function castText(cast: Character[], roles?: Record<string, string>) {
   return cast
-    .map((c) => `- ${c.name} — RÔLE : ${c.role} — ${fruitLabel(c.fruit)}, ${c.look}`)
+    .map((c) =>
+      roles?.[c.name]
+        ? `- ${c.name} — RÔLE DANS L'HISTOIRE : ${roles[c.name]} — ${fruitLabel(c.fruit)}, ${c.look}`
+        : `- ${c.name} — casting : ${c.role} — ${fruitLabel(c.fruit)}, ${c.look}`,
+    )
     .join("\n");
 }
 
@@ -82,14 +88,18 @@ export async function buildPlan(input: {
 Public : Afrique francophone (et diaspora). Ton : drôle, dramatique, rebondissements, punchlines.
 L'histoire doit être simple à suivre : un enjeu clair (argent, mariage, trahison, honte publique…), des personnages aux motivations évidentes.
 ${VIRAL_FORMULA}
-Réponds UNIQUEMENT en JSON : {"title": string, "voices": {"<nom exact du personnage>": "<voice description in English>"}, "episodes": [{"n": number, "title": string, "summary": string, "cliffhanger": string}]}.
+Réponds UNIQUEMENT en JSON : {"title": string, "roles": {"<nom exact du personnage>": "<son rôle dans CETTE histoire>"}, "voices": {"<nom exact du personnage>": "<voice description in English>"}, "episodes": [{"n": number, "title": string, "summary": string, "cliffhanger": string}]}.
+"roles" : le « casting » de la liste n'est qu'un type d'allure (âge, sexe, look). Donne à CHAQUE personnage son rôle réel
+dans le pitch (ex. "patron riche", "employé pauvre et honnête", "femme du patron"), en choisissant le personnage dont l'âge,
+le sexe et l'allure collent le mieux. N'ajoute AUCUN lien de parenté absent du pitch (un patron n'est pas le « papa » de son employé).
+Les personnes du pitch sans personnage disponible restent hors champ (on en parle, on ne les fait pas parler).
 "voices" : une voix TRÈS distincte pour chaque personnage (sexe, âge, timbre, grave/aigu, rythme), ex. "elderly woman, low raspy authoritative voice, slow".
 FIDÉLITÉ : le pitch est la vérité. Découpe SES événements, dans SON ordre, sur les épisodes. N'invente aucune autre intrigue
 (dette, chantage, vol, vidéo, licenciement…) qui n'y est pas. Les rôles et relations des personnages ne changent JAMAIS.
 IL DOIT SE PASSER QUELQUE CHOSE DANS CHAQUE ÉPISODE : chaque épisode contient au moins UN événement concret et sa conséquence
 (une révélation dite clairement, un exploit, une humiliation retournée, une décision). Jamais un épisode de pure mise en place.
-Chaque épisode = UNE scène filmable : un lieu, les personnages concernés, ce qui s'y passe concrètement,
-et le moment fort de la fin. "summary" décrit cette scène en 2 phrases concrètes (qui, où, quoi).
+Chaque épisode = une suite d'événements filmables (1 à 4 lieux, le temps peut avancer). "summary" les décrit en 2-3 phrases
+concrètes (qui, où, quoi), dans l'ordre, en indiquant le SECRET que le spectateur apprend tôt.
 Chaque épisode (sauf le dernier) : un événement résolu PUIS un nouveau suspense précis à la toute fin. Le dernier épisode : la chute complète.
 Les épisodes s'enchaînent : chacun reprend exactement là où le précédent s'est arrêté.`,
     `Pays : ${country.name} (${country.setting}).
@@ -97,7 +107,7 @@ Titre : ${input.title}
 Pitch : ${input.pitch}
 Nombre d'épisodes : ${input.episodes}
 Durée de chaque épisode : ${input.seconds ?? 30} secondes. Chaque "summary" ne décrit qu'UNE situation simple qui tient dans cette durée
-(en ${input.seconds ?? 30} s : 3 à ${Math.max(3, Math.round((input.seconds ?? 30) / 6))} répliques). Si l'histoire est longue, garde le reste pour les épisodes suivants.
+(en ${input.seconds ?? 30} s : environ ${Math.max(3, Math.round((input.seconds ?? 30) / config.clipSeconds))} répliques courtes). Si l'histoire est longue, garde le reste pour les épisodes suivants.
 ${input.episodes === 1 ? "ÉPISODE UNIQUE : raconte l'histoire EN ENTIER, en version courte : la situation, l'injustice ou le défi, ET la chute (le secret révélé, l'exploit, la revanche). Le spectateur doit voir la fin. Pas de « à suivre »." : ""}
 Personnages :
 ${castText(input.cast)}`,
@@ -167,10 +177,14 @@ export async function buildScript(input: {
 - FIDÉLITÉ ABSOLUE À L'HISTOIRE : l'épisode montre EXACTEMENT les événements de « Ce qui doit se passer », dans cet ordre.
   N'invente AUCUNE autre intrigue (pas de dette, de chantage, de vidéo, de vol, de licenciement… s'ils ne sont pas dans l'histoire).
 - RÔLES IMMUABLES : chaque personnage garde le rôle indiqué dans la liste (un ami reste un ami, un patron reste un patron).
+  Aucun lien de parenté qui n'est pas dans l'histoire (un patron n'appelle pas son employé « mon fils »).
   Le personnage qui s'oppose au héros est celui que l'histoire désigne, jamais un autre.
 - Plan 1 : accroche, on comprend tout de suite la situation (qui, où, ce qui se passe), avec une image forte.
 - Dans le premier quart de l'épisode : le spectateur apprend le secret (ironie dramatique).
 - Chaque réplique répond directement à la précédente ou à ce qu'on vient de voir. Aucune information qui tombe du ciel.
+- AUCUNE RÉPÉTITION : chaque plan apporte une information, une action ou une émotion NOUVELLE (jamais 3 moqueries d'affilée qui disent la même chose).
+  ${input.seconds >= 50 ? "En " + input.seconds + " s : au moins 3 rebondissements distincts (ex. secret confié, piège ou trahison, injustice publique, preuve, renversement), avec des changements de lieu ou de moment." : "Va droit au but : chaque plan fait avancer l'histoire."}
+- Un personnage ne cite jamais les paroles d'un autre entre guillemets (une seule voix par plan) : il dit ce que la preuve montre (« Le directeur avoue tout sur cet audio ! »).
 - ARC : la tension monte jusqu'au dernier plan, qui contient le moment fort prévu par l'histoire (exploit, révélation, retournement
   ou cliffhanger), dit ou montré clairement, avec la réaction visible des autres. Adapte l'émotion au type d'histoire :
   injustice → révolte puis satisfaction ; pouvoir caché/exploit → incrédulité puis « waouh » ; drame familial → choc ; comédie → chute drôle.
@@ -189,7 +203,7 @@ Réponds UNIQUEMENT en JSON : {"title": string, "logline": string, "mood": strin
 Ce qui doit se passer : ${ep.summary}
 Fin de l'épisode : ${ep.cliffhanger}
 Personnages disponibles :
-${castText(input.cast)}`;
+${castText(input.cast, input.plan.roles)}`;
 
   const draft = await chatJSON<Script>(
     `Tu es le meilleur scénariste de mini-séries TikTok (personnages-fruits 3D, style ${style.prompt}).
@@ -216,7 +230,8 @@ inversé — dans ce cas réécris pour coller à l'histoire), clarté de la sit
 tension qui monte, IL SE PASSE QUELQUE CHOSE (note max 5 si l'épisode n'est qu'une mise en place sans chute ou finit sur une promesse vague), retournement net et compréhensible à la fin, dialogue naturel, absence de blancs (${wordsMin}-${wordsMax} mots par plan).
 Vérifie aussi : exactement UNE réplique par plan, d'un seul personnage, les orateurs alternent. Liste les défauts dans "problems". Puis renvoie la version CORRIGÉE de l'épisode (même format, ${sceneCount} plans, mêmes noms) :
 si la note est < 8, réécris franchement le dialogue pour atteindre 9/10 en gardant l'idée.
-${rules}`,
+${rules}
+Ajoute à ce JSON les champs "score" (number, note de la version d'ORIGINE) et "problems" (string[]).`,
       JSON.stringify(draft),
       "writer",
     );
