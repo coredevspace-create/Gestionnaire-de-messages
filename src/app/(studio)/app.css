@@ -81,6 +81,8 @@ body:has(.studio) { background: #0c0c0e; }
 .lib-thumb .badge { position: absolute; left: 8px; bottom: 8px; font-size: 11.5px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.7); }
 .lib-thumb .badge.running { color: #fcd34d; }
 .lib-thumb .badge.failed { color: #fca5a5; }
+.lib-thumb .badge.review { color: #fff; background: var(--accent); }
+.lib-thumb .badge.stopped { color: var(--text-3); }
 .lib-thumb .play { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; transition: opacity 0.15s; background: rgba(0, 0, 0, 0.25); }
 .lib-item:hover .lib-thumb .play { opacity: 1; }
 .lib-item b { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; }

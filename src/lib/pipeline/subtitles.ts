@@ -153,3 +153,27 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   }
   return header + events.join("\n") + "\n";
 }
+
+/** Couverture TikTok : titre énorme en haut, « PARTIE N » en jaune, voile sombre pour la lisibilité. */
+export function coverAss(title: string, part?: string): string {
+  const t = escapeAss(title).toUpperCase();
+  return `[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Veil,${SUB_FONT},10,&H55000000,&H00000000,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
+Style: Title,${SUB_FONT},132,&H00FFFFFF,&H00FFFFFF,&H00000000,&H90000000,0,0,0,0,100,100,0,0,1,9,5,8,70,70,290,1
+Style: Part,${SUB_FONT},76,&H0000D7FF,&H0000D7FF,&H00000000,&H90000000,0,0,0,0,100,100,0,0,1,7,4,8,70,70,170,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:05.00,Veil,,0,0,0,,{\\blur60\\pos(0,0)\\p1}m 0 0 l 1080 0 1080 820 0 820{\\p0}
+Dialogue: 1,0:00:00.00,0:00:05.00,Title,,0,0,0,,${t}
+${part ? `Dialogue: 1,0:00:00.00,0:00:05.00,Part,,0,0,0,,${escapeAss(part).toUpperCase()}` : ""}
+`;
+}

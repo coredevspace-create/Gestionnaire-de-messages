@@ -4,7 +4,7 @@ import { sql } from "@/lib/db";
 import { mediaUrl } from "@/lib/storage";
 import { Icon } from "@/components/Icon";
 
-const LABEL: Record<string, string> = { queued: "En attente", running: "En cours…", done: "Prête", failed: "Échec" };
+const LABEL: Record<string, string> = { queued: "En attente", running: "En cours…", review: "À valider", done: "Prête", failed: "Échec", stopped: "Arrêtée" };
 
 export default async function CreationsPage() {
   const user = await requireUser();

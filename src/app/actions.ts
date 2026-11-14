@@ -6,7 +6,7 @@ import { config } from "@/lib/config";
 import { changeCredits, one, sql } from "@/lib/db";
 import { createSession, destroySession, hashPassword, isAdmin, requireUser, verifyPassword } from "@/lib/auth";
 import { COUNTRIES } from "@/lib/catalog/countries";
-import { createNextEpisode, createSeriesAndFirstVideo, retryVideo, UserError } from "@/lib/service";
+import { approveVideo, createNextEpisode, createSeriesAndFirstVideo, retryVideo, stopVideo, UserError } from "@/lib/service";
 import { isMood } from "@/lib/music";
 import { putMedia } from "@/lib/storage";
 import { startPregen } from "@/lib/pregen";
@@ -102,6 +102,21 @@ export async function retry(_: FormState, fd: FormData): Promise<FormState> {
   let id: number;
   try {
     id = await retryVideo(user, Number(str(fd, "videoId")));
+  } catch (e) {
+    if (e instanceof UserError) return { error: e.message };
+    throw e;
+  }
+  revalidatePath("/", "layout");
+  redirect(`/videos/${id}`);
+}
+
+/** Aperçu du premier clip : « C'est bon, continue » ou « Arrêter ». */
+export async function reviewFirstClip(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const id = Number(str(fd, "videoId"));
+  try {
+    if (str(fd, "decision") === "stop") await stopVideo(user, id);
+    else await approveVideo(user, id);
   } catch (e) {
     if (e instanceof UserError) return { error: e.message };
     throw e;

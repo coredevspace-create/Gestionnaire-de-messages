@@ -10,9 +10,9 @@ import { checkVideo, submitVideo } from "../ai/xai";
 import { mockClip, mockImage } from "../ai/mock";
 import { buildPlan, buildScript, type Scene, type Script, type SeriesPlan } from "../ai/script";
 import { getMedia, mediaExists, publicMediaUrl, putMedia } from "../storage";
-import { burnSubtitles, concatClips, ffmpeg, mixAudio, normalizeClip } from "./ffmpeg";
+import { burnSubtitles, ffmpeg, joinWithTransitions, makeCover, mixAudio, normalizeClip, WHIP_SECONDS, type ClipFx } from "./ffmpeg";
 import { pickTrack } from "../music";
-import { buildAss, wordsToTimedLines, type TimedLine } from "./subtitles";
+import { buildAss, coverAss, wordsToTimedLines, type TimedLine } from "./subtitles";
 import { emptyMetrics, parseMetrics, timed, withMetrics, type Metrics } from "../metrics";
 
 /**
@@ -116,6 +116,8 @@ function scenePrompt(scene: Scene, ctx: Ctx) {
 STRICTLY FORBIDDEN: grid, panels, comic layout, split screen, collage, multiple frames, borders, insets, text, subtitles.
 Characters: ${who || "the characters from the reference images"}. The reference images only show what each character looks like: keep EXACTLY the same fruit head, face and outfit, but place them together in the new scene.
 Location: ${scene.setting}${country.id === "monde" ? "" : ` (${country.name})`}. Action: ${scene.action}. Camera: ${scene.camera}.
+ONLY these fruit-headed characters appear in the frame: ${scene.characters.join(" and ") || "the referenced characters"}. No other fruit-headed character, no crowd in focus.
+Cinematic framing as described by the camera, shallow depth of field. Big expressive faces showing the emotion of the moment, eyes clearly visible (no sunglasses, nothing covering the eyes).
 Style: ${style.prompt}`;
 }
 
@@ -140,9 +142,10 @@ function videoPrompt(scene: Scene, ctx: Ctx) {
   const speech = !line
     ? "Nobody speaks."
     : thought
-      ? `${speaker}'s inner voice-over (mouth closed) says, slowly and clearly: "${line.text}"`
+      ? `ONLY ${speaker} speaks, whispering to themself, barely moving the lips: "${line.text}"`
       : `ONLY ${speaker} speaks, lips moving. Calm, unhurried delivery: half a second of silence, then the line at a slow conversational pace with natural pauses and strong emotion: "${line.text}"`;
-  return `One continuous single shot, no cuts. ${scene.action}. Camera: ${scene.camera}.
+  return `One continuous single shot, no cuts, steady camera. ${scene.action}. Camera: ${scene.camera}.
+Strong, natural facial acting that matches the emotion of the line (eyes, eyebrows, mouth).
 ${speech}
 ${speaker ? `Voice of ${speaker}: ${voiceFor(speaker, ctx)}, speaking ${lang}.` : ""}
 ${others.length ? `${others.join(" and ")} stay${others.length > 1 ? "" : "s"} completely silent with mouth closed, only reacting with facial expressions.` : ""}
@@ -177,9 +180,9 @@ async function makeSceneImage(ctx: Ctx, i: number) {
   scene.imagePath = await putMedia(`videos/${ctx.video.id}/scene-${i + 1}.png`, png);
 }
 
-async function submitClips(ctx: Ctx) {
+async function submitClips(ctx: Ctx, limit = Infinity) {
   const secs = sceneSeconds(ctx);
-  for (let i = 0; i < ctx.script!.scenes.length; i++) {
+  for (let i = 0; i < Math.min(limit, ctx.script!.scenes.length); i++) {
     const s = ctx.script!.scenes[i];
     if (s.clipPath || s.videoRequestId) continue;
     const img = s.imagePath!;
@@ -204,6 +207,27 @@ async function collectClips(ctx: Ctx): Promise<boolean> {
     else s.clipPath = await putMedia(`videos/${ctx.video.id}/clip-${i + 1}.mp4`, r.data);
   }
   return pending;
+}
+
+/** Couverture TikTok : le plan choisi par le scénariste + le titre. Jamais bloquant. */
+async function makeVideoCover(ctx: Ctx): Promise<string | null> {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `fs-cover-${ctx.video.id}-`));
+  try {
+    const scenes = ctx.script!.scenes;
+    const idx = Math.min(Math.max(0, Math.round(Number(ctx.script!.cover) || 0)), scenes.length - 1);
+    const img = path.join(dir, "img.png");
+    fs.writeFileSync(img, await getMedia(scenes[idx].imagePath ?? scenes[0].imagePath!));
+    const ass = path.join(dir, "cover.ass");
+    fs.writeFileSync(ass, coverAss(ctx.series.title, `Partie ${ctx.video.episode}`));
+    const out = path.join(dir, "cover.jpg");
+    await makeCover(img, ass, out);
+    return await putMedia(`videos/${ctx.video.id}/cover.jpg`, fs.readFileSync(out));
+  } catch (e) {
+    console.warn(`[video ${ctx.video.id}] couverture impossible`, e);
+    return null;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 async function assemble(ctx: Ctx): Promise<string> {
@@ -249,21 +273,28 @@ async function assemble(ctx: Ctx): Promise<string> {
       return Math.max(2.2, Math.round((end - begin) * 100) / 100);
     });
 
+    // Montage façon série : panoramique filé (glissement + flou + whoosh) quand on change de lieu
+    // et un changement de plan sur deux, coupe franche sinon ; zoom lent dans chaque plan.
+    const whip = scenes.slice(0, -1).map((s, i) => s.setting !== scenes[i + 1].setting || i % 2 === 1);
     const normalized: string[] = [];
     for (let i = 0; i < scenes.length; i++) {
       const out = path.join(dir, `norm-${i}.mp4`);
       // Dernier plan : 1 s d'arrêt sur image après la chute, pour qu'elle marque.
       const hold = i === scenes.length - 1 ? 1 : 0;
       if (hold) secs[i] += hold;
-      await normalizeClip(raws[i], out, secs[i], cutStart[i], hold);
+      const cam = (scenes[i].camera ?? "").toLowerCase();
+      const fx: ClipFx = {
+        zoom: /over.the.shoulder/.test(cam) ? "none" : /close/.test(cam) || i === scenes.length - 1 ? "in" : "out",
+        blurIn: i > 0 && whip[i - 1] ? WHIP_SECONDS : 0,
+        blurOut: i < scenes.length - 1 && whip[i] ? WHIP_SECONDS : 0,
+      };
+      await normalizeClip(raws[i], out, secs[i], cutStart[i], hold, fx);
       normalized.push(out);
     }
     const joined = path.join(dir, "joined.mp4");
-    await concatClips(normalized, joined);
+    const { starts: offsets, total } = await joinWithTransitions(normalized, secs, whip, joined);
 
     // 3. Sous-titres calés sur les mots réels (décalés de la coupe). Repli : texte du scénario réparti.
-    const offsets: number[] = [];
-    secs.reduce((acc, d) => (offsets.push(acc), acc + d), 0);
     const perScene = scenes.map((s, i): TimedLine[] => {
       const w = wordsPer[i];
       if (w) {
@@ -283,7 +314,6 @@ async function assemble(ctx: Ctx): Promise<string> {
     });
     const timed: TimedLine[] = perScene.flat();
     const assPath = path.join(dir, "subs.ass");
-    const total = secs.reduce((a, b) => a + b, 0);
     const hasNext = ctx.video.episode < ctx.series.episodes_total;
     fs.writeFileSync(
       assPath,
@@ -306,9 +336,8 @@ async function assemble(ctx: Ctx): Promise<string> {
         fs.writeFileSync(musicFile, await getMedia(track.path));
       }
     }
-    const cuts: number[] = [];
-    secs.reduce((acc, d) => (cuts.push(acc + d), acc + d), 0);
-    cuts.pop();
+    // Whoosh uniquement sur les panoramiques filés.
+    const cuts = offsets.slice(1).map((o, i) => (whip[i] ? o + WHIP_SECONDS / 2 : -1)).filter((c) => c > 0);
     const final = path.join(dir, "final.mp4");
     try {
       await mixAudio({ input: subbed, output: final, duration: total, music: musicFile, cuts });
@@ -328,7 +357,7 @@ async function assemble(ctx: Ctx): Promise<string> {
  *  - "progress" : une étape a avancé
  *  - "waiting" : on attend Grok
  */
-async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | "waiting" | "stop"> {
+async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | "waiting" | "stop" | "paused"> {
   const id = ctx.video.id;
 
   const missing: Character[] = [];
@@ -386,6 +415,28 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
   const scenes = ctx.script.scenes;
   const n = scenes.length;
 
+  // Aperçu : le 1er plan est animé en premier et montré à l'utilisateur avant de payer le reste.
+  if (!ctx.video.approved) {
+    const first = scenes[0];
+    if (!first.imagePath) {
+      await setStep(id, "Image du premier plan");
+      await timed(ctx.metrics, "Images des plans", () => makeSceneImage(ctx, 0));
+      await saveScript(ctx, "Image du premier plan prête");
+      return "progress";
+    }
+    if (!first.clipPath && !first.videoRequestId) {
+      await setStep(id, "Animation du premier clip");
+      if (isMock()) {
+        const clip = await mockClip(await getMedia(first.imagePath), sceneSeconds(ctx)[0], `Plan 1 · ${first.characters.join(" & ")}`);
+        first.clipPath = await putMedia(`videos/${id}/clip-1.mp4`, clip);
+      } else {
+        await timed(ctx.metrics, "Animation", () => submitClips(ctx, 1));
+      }
+      await saveScript(ctx, "Animation du premier clip");
+      return "progress";
+    }
+  }
+
   const noImage = scenes.map((s, i) => (s.imagePath ? -1 : i)).filter((i) => i >= 0);
   if (noImage.length) {
     await setStep(id, `Images des plans (${n - noImage.length}/${n} prêtes)`);
@@ -394,6 +445,17 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
     await timed(ctx.metrics, "Images des plans", () => parallel(batch, 4, (i) => makeSceneImage(ctx, i)));
     await saveScript(ctx, `Images des plans (${n - noImage.length + batch.length}/${n} prêtes)`);
     return "progress";
+  }
+
+  if (!ctx.video.approved) {
+    if (!scenes[0].clipPath) {
+      const pending = await timed(ctx.metrics, "Animation", () => collectClips(ctx));
+      await saveScript(ctx, "Animation du premier clip");
+      if (pending) return "waiting";
+    }
+    // Le clip est prêt : on attend le feu vert de l'utilisateur (la vidéo ne bouge plus d'ici là).
+    await setStep(id, "Premier clip prêt : à toi de valider", { status: "review", metrics_json: JSON.stringify(ctx.metrics) });
+    return "paused";
   }
 
   if (scenes.some((s) => !s.clipPath)) {
@@ -424,8 +486,9 @@ async function step(ctx: Ctx, elapsedMs: number): Promise<"done" | "progress" | 
   if (elapsedMs > 30_000) return "stop";
   await setStep(id, "Montage final");
   const out = await timed(ctx.metrics, "Montage", () => assemble(ctx));
+  const cover = await makeVideoCover(ctx);
   ctx.metrics.finishedAt = new Date().toISOString();
-  await setStep(id, "Terminé", { status: "done", output_path: out, metrics_json: JSON.stringify(ctx.metrics) });
+  await setStep(id, "Terminé", { status: "done", output_path: out, cover_path: cover, metrics_json: JSON.stringify(ctx.metrics) });
   return "done";
 }
 
@@ -460,7 +523,7 @@ export async function work(id: number, budgetMs = WORK_BUDGET_MS): Promise<"done
     // On s'arrête avant 2 min écoulées pour qu'une unité longue (image, montage) tienne dans le budget.
     while (Date.now() - start < budgetMs / 2) {
       const r = await withMetrics(ctx.metrics, () => step(ctx, Date.now() - start));
-      if (r === "done") return "done";
+      if (r === "done" || r === "paused") return "done";
       if (r === "stop") break;
       if (r === "waiting") await timed(ctx.metrics, "Animation", () => new Promise((res) => setTimeout(res, 8000)));
     }

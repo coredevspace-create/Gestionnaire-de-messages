@@ -330,7 +330,7 @@ export const WORLD_STORIES: Story[] = [
     cast: [],
     castSpec: [
       { id: "livreur", name: "Sami", fruit: "avocado", role: "livreur (propriétaire en secret)", look: "delivery rider in rain jacket, helmet, kind eyes; later in elegant suit" },
-      { id: "cliente", name: "Jessica", fruit: "cherry", role: "cliente riche et méprisante", look: "rich arrogant woman, designer dress, sunglasses, luxury handbag" },
+      { id: "cliente", name: "Jessica", fruit: "cherry", role: "cliente riche et méprisante", look: "rich arrogant woman, designer dress, sunglasses pushed up on her head, luxury handbag" },
       { id: "rh", name: "Madame Poire", fruit: "pear", role: "recruteuse", look: "professional HR manager, glasses, tablet" },
     ],
     world: M,
@@ -347,7 +347,7 @@ export const WORLD_STORIES: Story[] = [
     cast: [],
     castSpec: [
       { id: "petitefille", name: "Léa", fruit: "peach", role: "petite-fille pauvre et dévouée", look: "kind young woman, simple worn clothes, teary eyes" },
-      { id: "frere", name: "Maxime", fruit: "grape", role: "frère cupide", look: "greedy rich heir, flashy suit, sunglasses indoors" },
+      { id: "frere", name: "Maxime", fruit: "grape", role: "frère cupide", look: "greedy rich heir, flashy suit, sunglasses pushed up on his head" },
       { id: "soeur", name: "Victoria", fruit: "blueberry", role: "sœur hautaine", look: "snobby heiress, fur coat, pearls" },
       { id: "notaire", name: "Maître Citron", fruit: "lemon", role: "notaire", look: "serious old notary, round glasses, documents" },
     ],

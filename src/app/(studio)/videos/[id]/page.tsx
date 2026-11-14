@@ -13,22 +13,29 @@ import { GenerationProgress } from "@/components/GenerationProgress";
 import { CopyCaption, DownloadButton } from "@/components/DownloadButton";
 import { Icon } from "@/components/Icon";
 import { Thumb } from "@/components/Thumb";
-import { adminToggleShowcase, nextEpisode, retry } from "@/app/actions";
+import { adminToggleShowcase, nextEpisode, retry, reviewFirstClip } from "@/app/actions";
+import { PREVIEW_SHARE } from "@/lib/service";
+import { getCountry } from "@/lib/catalog/countries";
 
 function slug(s: string) {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
 }
 
-/** Description TikTok prête à coller : accroche, titre, appel à la suite, hashtags. */
-function captionFor(title: string, episode: number, total: number, script: Script | null) {
+/** Description TikTok prête à coller : teaser écrit par le scénariste (sinon accroche), suite, hashtags du pays. */
+function captionFor(title: string, episode: number, total: number, script: Script | null, countryId: string) {
   const hook = script?.scenes?.[0]?.lines?.[0]?.text;
+  const country = getCountry(countryId);
+  const tag = country.id === "monde" ? "" : `#${slug(country.name).replace(/-/g, "")} #afrique `;
   const parts = [
-    hook ? `« ${hook} »` : null,
-    `${title} — Partie ${episode}${total > 1 ? `/${total}` : ""}`,
-    episode < total ? `👉 Abonne-toi pour la partie ${episode + 1}` : "Tu aurais fait quoi à sa place ? 👇",
-    `#histoire #serie #fruits #ia #partie${episode} #pourtoi #fyp`,
+    script?.caption ? `${script.caption} Partie ${episode}.` : hook ? `« ${hook} »\n\n${title} — Partie ${episode}` : `${title} — Partie ${episode}`,
+    episode < total ? `👉 Abonne-toi pour la partie ${episode + 1}` : null,
+    `${tag}#drama #serie #histoire #partie${episode} #pourtoi`,
   ];
   return parts.filter(Boolean).join("\n\n");
+}
+
+function pinnedFor(script: Script | null, episode: number, total: number) {
+  return script?.pinned || (episode < total ? `Partie ${episode + 1} ? Dites-moi en commentaire 👇` : "Vous auriez fait quoi à sa place ? 👇");
 }
 
 export default async function VideoPage({ params }: { params: Promise<{ id: string }> }) {
@@ -39,7 +46,7 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
   const series = (await one<Series>("SELECT * FROM series WHERE id = $1", [video.series_id]))!;
   const script: Script | null = video.script_json ? JSON.parse(video.script_json) : null;
   const active = video.status === "queued" || video.status === "running";
-  const doneCount = (await one<{ n: number }>("SELECT COUNT(*)::int AS n FROM videos WHERE series_id = $1 AND status != 'failed'", [series.id]))!.n;
+  const doneCount = (await one<{ n: number }>("SELECT COUNT(*)::int AS n FROM videos WHERE series_id = $1 AND status NOT IN ('failed','stopped')", [series.id]))!.n;
   const canNext = video.status === "done" && doneCount < series.episodes_total;
   const fmt = FORMATS[video.format as FormatId];
   const title = script?.title ?? series.title;
@@ -70,6 +77,44 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
           );
         })()}
 
+      {video.status === "review" && script?.scenes?.[0]?.clipPath && (
+        <div className="panel vp-review">
+          <div className="vp-review-clip">
+            <video src={mediaUrl(script.scenes[0].clipPath)!} poster={poster ?? undefined} controls autoPlay playsInline />
+          </div>
+          <div className="vp-review-body">
+            <span className="vp-ready"><Icon name="play" size={13} /> Aperçu</span>
+            <h2>Voici ton premier clip</h2>
+            <p className="muted">
+              Vérifie les personnages, les voix et le style. Si c&apos;est bon, on anime les {script.scenes.length - 1} autres plans et on fait le montage.
+            </p>
+            <ActionForm action={reviewFirstClip}>
+              <input type="hidden" name="videoId" value={video.id} />
+              <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+                <Submit className="btn-accent" name="decision" value="go">C&apos;est bon, continue</Submit>
+                <Submit className="secondary" name="decision" value="stop">Arrêter</Submit>
+              </div>
+            </ActionForm>
+            <small className="muted">
+              Si tu arrêtes ici, seul ce clip est décompté ({Math.ceil(video.credits_cost * PREVIEW_SHARE)} crédits au lieu de {video.credits_cost}).
+            </small>
+          </div>
+        </div>
+      )}
+
+      {video.status === "stopped" && (
+        <div className="panel vp-failed">
+          <h2>Vidéo arrêtée après le premier clip</h2>
+          <p className="muted">
+            Seul le premier clip a été décompté ({Math.ceil(video.credits_cost * PREVIEW_SHARE)} crédits), le reste t&apos;a été rendu.
+          </p>
+          <ActionForm action={retry}>
+            <input type="hidden" name="videoId" value={video.id} />
+            <Submit className="btn-accent">Recommencer · {video.credits_cost} crédits</Submit>
+          </ActionForm>
+        </div>
+      )}
+
       {video.status === "failed" && (
         <div className="panel vp-failed">
           <h2>La génération n&apos;a pas abouti</h2>
@@ -98,9 +143,14 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
             </div>
 
             <DownloadButton src={src} downloadUrl={mediaDownloadUrl(video.output_path)!} filename={`${slug(series.title)}-partie-${video.episode}.mp4`} />
+            {video.cover_path && (
+              <a className="btn secondary vp-cover-btn" href={mediaDownloadUrl(video.cover_path)!} download={`${slug(series.title)}-partie-${video.episode}-couverture.jpg`}>
+                <Thumb src={mediaUrl(video.cover_path)!} alt="" />
+                <span>Télécharger la couverture</span>
+              </a>
+            )}
 
             <div className="vp-actions">
-              <CopyCaption text={captionFor(series.title, video.episode, series.episodes_total, script)} />
               {canNext && (
                 <ActionForm action={nextEpisode}>
                   <input type="hidden" name="seriesId" value={series.id} />
@@ -115,15 +165,26 @@ export default async function VideoPage({ params }: { params: Promise<{ id: stri
             </div>
 
             <div className="vp-caption">
-              <span className="eyebrow">Description suggérée</span>
-              <p>{captionFor(series.title, video.episode, series.episodes_total, script)}</p>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span className="eyebrow">Description TikTok</span>
+                <CopyCaption small text={captionFor(series.title, video.episode, series.episodes_total, script, series.country)} label="Copier" done="Copié" />
+              </div>
+              <p>{captionFor(series.title, video.episode, series.episodes_total, script, series.country)}</p>
             </div>
+
+            <div className="vp-caption">
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span className="eyebrow">Commentaire à épingler</span>
+                <CopyCaption small text={pinnedFor(script, video.episode, series.episodes_total)} label="Copier" done="Copié" />
+              </div>
+              <p>{pinnedFor(script, video.episode, series.episodes_total)}</p>
+            </div>
+            <p className="muted" style={{ fontSize: 13, margin: 0 }}>Active le label « contenu généré par IA » en publiant sur TikTok.</p>
 
             <div className="vp-tips">
               <span className="eyebrow">Pour plus de vues</span>
               <ul>
                 <li>Publie entre 12 h et 14 h ou entre 19 h et 22 h.</li>
-                <li>Épingle un commentaire « Partie 2 ? » pour faire réagir.</li>
                 {series.episodes_total > 1 && <li>Poste la partie suivante dans les 24 heures.</li>}
               </ul>
             </div>

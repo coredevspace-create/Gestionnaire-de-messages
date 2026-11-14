@@ -126,12 +126,12 @@ export function DownloadButton({ src, downloadUrl, filename }: { src: string; do
 }
 
 /** Copie la description TikTok (texte + hashtags) avec confirmation. */
-export function CopyCaption({ text }: { text: string }) {
+export function CopyCaption({ text, label = "Copier la description", done = "Description copiée", small }: { text: string; label?: string; done?: string; small?: boolean }) {
   const [ok, setOk] = useState(false);
   return (
     <button
       type="button"
-      className="secondary"
+      className={small ? "secondary btn-sm" : "secondary"}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(text);
@@ -148,7 +148,7 @@ export function CopyCaption({ text }: { text: string }) {
         setTimeout(() => setOk(false), 2200);
       }}
     >
-      <Icon name={ok ? "check" : "copy"} size={16} /> {ok ? "Description copiée" : "Copier la description"}
+      <Icon name={ok ? "check" : "copy"} size={16} /> {ok ? done : label}
     </button>
   );
 }

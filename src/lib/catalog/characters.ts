@@ -9,7 +9,7 @@ export const ROLES = {
   bellemere: { fruit: "pineapple", gender: "female", nameIdx: 2, look: "old stern mother-in-law, glasses, walking stick" },
   fils: { fruit: "avocado", gender: "male", nameIdx: 1, look: "young man in his twenties, trendy, phone in hand" },
   fille: { fruit: "peach", gender: "female", nameIdx: 3, look: "young woman in her twenties, ambitious, stylish" },
-  oncle: { fruit: "coconut", gender: "male", nameIdx: 2, look: "uncle back from Europe (diaspora), flashy, sunglasses" },
+  oncle: { fruit: "coconut", gender: "male", nameIdx: 2, look: "uncle back from Europe (diaspora), flashy, sunglasses pushed up on his head" },
   voisin: { fruit: "watermelon", gender: "male", nameIdx: 3, look: "gossiping neighbor, big smile, always listening" },
 } as const;
 

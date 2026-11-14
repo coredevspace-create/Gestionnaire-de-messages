@@ -73,7 +73,7 @@ export async function createNextEpisode(user: User, seriesId: number): Promise<n
   const series = await one<Series>("SELECT * FROM series WHERE id = $1 AND user_id = $2", [seriesId, user.id]);
   if (!series) throw new UserError("Série introuvable.");
   const last = (await one<{ n: number | null }>(
-    "SELECT MAX(episode) AS n FROM videos WHERE series_id = $1 AND status != 'failed'",
+    "SELECT MAX(episode) AS n FROM videos WHERE series_id = $1 AND status NOT IN ('failed','stopped')",
     [seriesId],
   ))!;
   const next = (last.n ?? 0) + 1;
@@ -88,7 +88,31 @@ export async function retryVideo(user: User, videoId: number): Promise<number> {
     "SELECT * FROM videos WHERE id = $1 AND user_id = $2",
     [videoId, user.id],
   );
-  if (!v || v.status !== "failed") throw new UserError("Cette vidéo ne peut pas être relancée.");
+  if (!v || (v.status !== "failed" && v.status !== "stopped")) throw new UserError("Cette vidéo ne peut pas être relancée.");
   const series = (await one<Series>("SELECT * FROM series WHERE id = $1", [v.series_id]))!;
   return insertVideo(user, series, v.episode, v.format as FormatId);
+}
+
+/** Part des crédits gardée si l'utilisateur arrête après le premier clip. */
+export const PREVIEW_SHARE = 0.25;
+
+/** Premier clip validé : on anime le reste. */
+export async function approveVideo(user: User, videoId: number): Promise<void> {
+  const v = await one<{ id: number }>(
+    "UPDATE videos SET approved = true, status = 'queued', step = 'Validé, animation des plans' WHERE id = $1 AND user_id = $2 AND status = 'review' RETURNING id",
+    [videoId, user.id],
+  );
+  if (!v) throw new UserError("Cette vidéo n'attend pas de validation.");
+  await kickVideo(v.id);
+}
+
+/** Arrêt après le premier clip : seul ce clip est décompté. */
+export async function stopVideo(user: User, videoId: number): Promise<void> {
+  const v = await one<{ id: number; credits_cost: number }>(
+    "UPDATE videos SET status = 'stopped', step = 'Arrêtée après le premier clip' WHERE id = $1 AND user_id = $2 AND status = 'review' RETURNING id, credits_cost",
+    [videoId, user.id],
+  );
+  if (!v) throw new UserError("Cette vidéo n'attend pas de validation.");
+  const kept = Math.ceil(v.credits_cost * PREVIEW_SHARE);
+  await changeCredits(user.id, v.credits_cost - kept, `Arrêt après le premier clip, vidéo #${v.id}`);
 }

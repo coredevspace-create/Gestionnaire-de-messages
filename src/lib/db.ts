@@ -108,6 +108,9 @@ CREATE TABLE IF NOT EXISTS credit_ledger (
 );
 -- Évolutions du schéma (après la création de toutes les tables)
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS metrics_json TEXT;
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS cover_path TEXT;
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS approved BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE videos ALTER COLUMN approved SET DEFAULT false;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS sub_credits INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_interval TEXT;
@@ -148,6 +151,14 @@ async function connect(): Promise<Exec> {
       UPDATE users SET credits = credits * 10, sub_credits = sub_credits * 10;
       UPDATE videos SET credits_cost = credits_cost * 10;
       UPDATE credit_ledger SET delta = delta * 10;
+    END IF;
+  END $m$`);
+  // Migration unique : lunettes de soleil relevées sur la tête (on veut voir les yeux) → portraits recréés à la demande.
+  await exec(`DO $m$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM app_meta WHERE key = 'no_sunglasses_eyes') THEN
+      INSERT INTO app_meta (key) VALUES ('no_sunglasses_eyes');
+      UPDATE characters SET look = replace(replace(look, 'sunglasses indoors', 'sunglasses'), 'sunglasses', 'sunglasses pushed up on the head'), sheet_path = NULL
+        WHERE look LIKE '%sunglasses%' AND look NOT LIKE '%pushed up%';
     END IF;
   END $m$`);
   return exec;
@@ -211,7 +222,11 @@ export type Video = {
   format: string;
   seconds: number;
   credits_cost: number;
-  status: "queued" | "running" | "done" | "failed";
+  status: "queued" | "running" | "review" | "done" | "failed" | "stopped";
+  /** Premier clip validé par l'utilisateur : on peut animer le reste */
+  approved: boolean;
+  /** Couverture TikTok (JPEG 1080x1920) */
+  cover_path: string | null;
   step: string | null;
   script_json: string | null;
   output_path: string | null;

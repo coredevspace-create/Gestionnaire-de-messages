@@ -12,15 +12,23 @@ import { chatJSON } from "./openai";
 const VIRAL_FORMULA = `CE QUI REND LES VIDÉOS VIRALES CAPTIVANTES (analyse de vidéos à succès) — applique cette MÉCANIQUE :
 1. ACCROCHE IMMÉDIATE : la toute première réplique pose l'enjeu (« Le jour de paie est arrivé ! », « Tu m'as trompé ! »).
 2. IRONIE DRAMATIQUE (le plus important) : TRÈS TÔT, le spectateur apprend un secret que la victime ou le méchant ignore,
-   par une confidence à un proche (« J'ai mis trop d'argent exprès pour le tester ») ou une PENSÉE intérieure (« Cet argent est pour moi »).
-   Le spectateur en sait plus que les personnages : c'est ce qui le scotche.
-3. DILEMME du héros, dit en pensée intérieure (« Ma mère est malade… mais ce n'est pas comme ça qu'elle m'a élevé »).
-4. CHOIX MORAL du héros, puis TRAHISON ou piège d'un tiers (souvent révélé par sa pensée intérieure).
+   par une CONFIDENCE chuchotée à un complice ou au téléphone (« J'ai mis trop d'argent exprès pour le tester »),
+   ou par une ACTION visible (le méchant cache le collier dans son sac). Le spectateur en sait plus que les personnages : c'est ce qui le scotche.
+3. DILEMME du héros, confié à un proche (« Ma mère est malade… mais ce n'est pas comme ça qu'elle m'a élevé »).
+4. CHOIX MORAL du héros, puis TRAHISON ou piège d'un tiers (révélé par une confidence ou un geste visible).
 5. INJUSTICE : le héros est accusé ou humilié à tort, devant les autres. Le spectateur, qui sait la vérité, est révolté.
 6. CONFRONTATION puis RÉVÉLATION / PREUVE (caméra, témoin, papier) ou cliffhanger juste au moment de la preuve.
 Forme : répliques COURTES (5 à 10 mots), qui s'enchaînent vite, émotions fortes (cris, supplications, rires mauvais).
 Plusieurs lieux et moments si besoin (le bureau, puis la maison le soir, puis le lendemain) : on change de décor d'un plan à l'autre.
-Ton : familier, naturel, mots simples, toujours compréhensible.`;
+Ton : familier, naturel, mots simples, toujours compréhensible.
+MISE EN SCÈNE (comme une vraie série) :
+- 1 ou 2 personnages par plan, JAMAIS plus : celui qui parle et celui à qui il parle. Les autres sont hors champ.
+- Cadrages variés : gros plan sur le visage pour les émotions fortes, plan par-dessus l'épaule pour les face-à-face,
+  plan à deux pour situer. Visages expressifs (colère, larmes, sourire en coin), yeux toujours visibles (jamais de lunettes de soleil).
+- Un OBJET CLÉ bien visible (clé, enveloppe, collier, téléphone, papier) qui revient d'un plan à l'autre et porte l'intrigue.
+- Les personnages se présentent par les répliques : dans les premiers plans, on s'appelle par son prénom et on dit le lien
+  (« Bineta, c'est Fama, ma deuxième épouse »), pour que le spectateur sache tout de suite qui est qui.
+- Petits détails du quotidien local (plat, prière, marché, monnaie) pour que ça sonne vrai.`;
 
 export type EpisodePlan = { n: number; title: string; summary: string; cliffhanger: string };
 export type SeriesPlan = {
@@ -50,6 +58,12 @@ export type Script = {
   /** Ambiance musicale : suspense | drame | emotion | action | comedie | triomphe */
   mood?: string;
   scenes: Scene[];
+  /** Description TikTok : teaser de l'histoire + question au spectateur */
+  caption?: string;
+  /** Commentaire à épingler : une question qui fait débattre */
+  pinned?: string;
+  /** Index du plan utilisé pour la couverture */
+  cover?: number;
 };
 
 function castText(cast: Character[], roles?: Record<string, string>) {
@@ -119,8 +133,8 @@ ${castText(input.cast)}`,
 const WORDS_PER_SECOND = 2.3;
 
 /** Exemple de référence (qualité attendue) montré au scénariste. */
-const GOLD_EXAMPLE = `EXEMPLE DE RÉFÉRENCE (~30 s, 10 plans, une réplique courte par plan) — imite cette MÉCANIQUE (accroche, secret confié au spectateur, trahison en pensée, injustice, preuve), pas cette histoire :
-{"title": "Le collier du patron", "logline": "Le patron teste son chauffeur avec un collier, mais c'est son propre fils qui le vole et accuse le chauffeur.", "mood": "suspense", "scenes": [{"characters": ["Mme Mangue", "Kouassi"], "setting": "luxury car parked in front of a villa", "action": "Mme Mangue leaves a diamond necklace on the back seat and points a finger at Kouassi, the driver", "camera": "medium shot", "lines": [{"speaker": "Mme Mangue", "text": "Chauffeur, ce collier vaut dix millions, n'y touche pas."}]}, {"characters": ["M. Mangue", "Mme Mangue"], "setting": "villa living room, evening", "action": "M. Mangue whispers to his wife with a sly smile", "camera": "close-up on M. Mangue", "lines": [{"speaker": "M. Mangue", "text": "Je l'ai laissé exprès pour tester Kouassi, chérie."}]}, {"characters": ["Junior"], "setting": "villa hallway, behind a door", "action": "Junior, the son, listens behind the door, eyes narrowing greedily", "camera": "close-up on Junior", "lines": [{"speaker": "Junior (pensée)", "text": "Si le collier disparaît, c'est le chauffeur qu'on accusera."}]}, {"characters": ["Kouassi", "Junior"], "setting": "villa garage at night", "action": "Kouassi hands the shining necklace to Junior, relieved and honest", "camera": "medium shot", "lines": [{"speaker": "Kouassi", "text": "Monsieur Junior, votre mère a oublié son collier."}]}, {"characters": ["Junior", "Kouassi"], "setting": "villa garage at night", "action": "Junior snatches the necklace and pats Kouassi's shoulder with a fake smile", "camera": "medium shot", "lines": [{"speaker": "Junior", "text": "Merci Kouassi, je le lui rends tout de suite."}]}, {"characters": ["Junior"], "setting": "Junior's bedroom", "action": "Junior hides the necklace in his bag, smirking", "camera": "close-up on the bag", "lines": [{"speaker": "Junior (pensée)", "text": "Ce collier va payer toutes mes dettes."}]}, {"characters": ["M. Mangue", "Kouassi"], "setting": "villa courtyard, next morning", "action": "M. Mangue grabs Kouassi by the collar in front of the staff", "camera": "medium shot", "lines": [{"speaker": "M. Mangue", "text": "Kouassi, le collier a disparu. C'est toi le voleur ?"}]}, {"characters": ["Kouassi", "M. Mangue"], "setting": "villa courtyard", "action": "Kouassi raises his hands, desperate, tears in his eyes", "camera": "close-up on Kouassi", "lines": [{"speaker": "Kouassi", "text": "Patron, je l'ai donné à votre fils hier soir !"}]}, {"characters": ["Junior", "M. Mangue", "Kouassi"], "setting": "villa courtyard", "action": "Junior steps in, pointing at Kouassi with fake outrage", "camera": "medium shot", "lines": [{"speaker": "Junior", "text": "Il ment, papa ! Je n'ai jamais vu ce collier !"}]}, {"characters": ["Kouassi", "M. Mangue", "Junior"], "setting": "villa courtyard", "action": "Kouassi points at the small camera on the car's dashboard; Junior freezes, pale", "camera": "close-up on the dashboard camera", "lines": [{"speaker": "Kouassi", "text": "Regardez la caméra de la voiture, patron."}]}]}
+const GOLD_EXAMPLE = `EXEMPLE DE RÉFÉRENCE (~30 s, 10 plans, une réplique courte par plan, 1 ou 2 personnages par plan) — imite cette MÉCANIQUE (accroche, secret confié au spectateur par une confidence, objet clé, trahison, injustice, preuve) et cette MISE EN SCÈNE, pas cette histoire :
+{"title": "Le collier du patron", "logline": "Le patron teste son chauffeur avec un collier, mais c'est son propre fils qui le vole et accuse le chauffeur.", "mood": "suspense", "scenes": [{"characters": ["Mme Mangue", "Kouassi"], "setting": "luxury car parked in front of a villa, afternoon", "action": "Mme Mangue drops a sparkling diamond necklace on the back seat and points a stern finger at Kouassi, the nervous driver", "camera": "medium two-shot of Mme Mangue and Kouassi", "lines": [{"speaker": "Mme Mangue", "text": "Kouassi, ce collier vaut dix millions, n'y touche pas."}]}, {"characters": ["M. Mangue", "Mme Mangue"], "setting": "villa living room, evening", "action": "M. Mangue leans to his wife and whispers with a sly smile, eyebrows raised", "camera": "close-up on M. Mangue", "lines": [{"speaker": "M. Mangue", "text": "Chérie, je l'ai laissé exprès pour tester notre chauffeur."}]}, {"characters": ["Junior"], "setting": "dark villa hallway, behind a half-open door", "action": "Junior, the son, presses his phone to his ear and whispers, eyes narrowing greedily", "camera": "close-up on Junior", "lines": [{"speaker": "Junior", "text": "Si le collier disparaît, c'est le chauffeur qu'on accusera."}]}, {"characters": ["Kouassi", "Junior"], "setting": "villa garage at night", "action": "Kouassi holds out the shining necklace to Junior with both hands, relieved and honest", "camera": "over-the-shoulder shot from behind Junior, facing Kouassi", "lines": [{"speaker": "Kouassi", "text": "Monsieur Junior, votre mère a oublié son collier."}]}, {"characters": ["Junior", "Kouassi"], "setting": "villa garage at night", "action": "Junior snatches the necklace with a fake warm smile while Kouassi nods respectfully", "camera": "over-the-shoulder shot from behind Kouassi, facing Junior", "lines": [{"speaker": "Junior", "text": "Merci Kouassi, je le lui rends tout de suite."}]}, {"characters": ["Junior"], "setting": "Junior's bedroom at night", "action": "Junior stuffs the necklace deep into his bag and laughs quietly into his phone", "camera": "close-up on Junior", "lines": [{"speaker": "Junior", "text": "Le collier est dans mon sac, mes dettes sont payées."}]}, {"characters": ["M. Mangue", "Kouassi"], "setting": "villa courtyard, next morning", "action": "M. Mangue, furious, grabs Kouassi by the collar; Kouassi's eyes widen in shock", "camera": "medium two-shot of M. Mangue and Kouassi", "lines": [{"speaker": "M. Mangue", "text": "Kouassi, le collier a disparu. C'est toi le voleur ?"}]}, {"characters": ["Kouassi", "M. Mangue"], "setting": "villa courtyard", "action": "Kouassi raises his trembling hands, tears in his eyes", "camera": "close-up on Kouassi", "lines": [{"speaker": "Kouassi", "text": "Patron, je l'ai donné à votre fils hier soir !"}]}, {"characters": ["Junior", "M. Mangue"], "setting": "villa courtyard", "action": "Junior points at Kouassi with fake outrage, chin up, avoiding his father's eyes", "camera": "over-the-shoulder shot from behind M. Mangue, facing Junior", "lines": [{"speaker": "Junior", "text": "Il ment, papa ! Je n'ai jamais vu ce collier !"}]}, {"characters": ["Kouassi", "M. Mangue"], "setting": "villa courtyard", "action": "Kouassi points at the small camera on the car's dashboard; M. Mangue slowly turns, stunned", "camera": "close-up on Kouassi", "lines": [{"speaker": "Kouassi", "text": "Regardez la caméra de la voiture, patron."}]}]}
 Pour 20 s : garde accroche → secret → retournement en 5-7 plans. Pour 70 s : déroule toutes les étapes avec plus de rebondissements.`;
 
 export async function buildScript(input: {
@@ -169,7 +183,7 @@ export async function buildScript(input: {
 
   const rules = `CONTRAINTES :
 - Exactement ${sceneCount} plans de ~${perShot.toFixed(0)} s, format vertical. ${world}
-- 2 à 4 personnages, 1 à 4 lieux. Le temps peut avancer entre deux plans (on le comprend par le décor et les répliques, sans narrateur).
+- 2 à 4 personnages dans l'épisode, mais 1 ou 2 par plan ("characters" contient au plus 2 noms). 1 à 4 lieux. Le temps peut avancer entre deux plans (on le comprend par le décor et les répliques, sans narrateur).
 - UNE SEULE RÉPLIQUE PAR PLAN, dite par UN SEUL personnage (le générateur vidéo ne sait faire qu'une voix par plan).
   Les autres personnages du plan écoutent en silence (bouche fermée) et réagissent par le visage.
   Les plans alternent les personnages qui parlent, comme un champ/contrechamp : A, puis B, puis A…
@@ -192,11 +206,17 @@ export async function buildScript(input: {
 - Les répliques sont des paroles qu'un personnage dit À un autre (pas de description de la scène : jamais « le cadenas claque », « personne ne respire »).
 - Le dernier plan donne la RÉPONSE, pas une promesse : on entend ce qui est révélé ou on voit ce qui arrive (« Le manoir est à Léa », pas « ce qu'elle reçoit va vous choquer »).
 - Interdits : phrases télégraphiques, énumérations, informations qui tombent du ciel, « Fin », narration, didascalies dans les répliques.
-- Pensées intérieures (speaker = "Prénom (pensée)") : utilise-les pour l'ironie dramatique et le dilemme (1 à 3 par épisode).
+- AUCUNE pensée intérieure ni voix off (le générateur vidéo fait toujours bouger les lèvres) : le secret passe par une confidence
+  chuchotée à un complice, un appel téléphonique ou une action visible.
 - "characters" et "speaker" : EXACTEMENT les noms de la liste fournie.
-- "setting", "action", "camera" en ANGLAIS. "action" décrit ce qu'on VOIT : le geste, l'objet clé visible, et la réaction de l'autre.
+- "setting", "action", "camera" en ANGLAIS. "action" décrit ce qu'on VOIT : le geste, l'objet clé visible, l'expression du visage, et la réaction de l'autre.
+  "camera" parmi : "close-up on <Nom>", "over-the-shoulder shot from behind <Nom>, facing <Nom>", "medium two-shot of <Nom> and <Nom>".
 - "mood" parmi : suspense, drame, emotion, action, comedie, triomphe.
-Réponds UNIQUEMENT en JSON : {"title": string, "logline": string, "mood": string, "scenes": [{"characters": string[], "setting": string, "action": string, "camera": string, "lines": [{"speaker": string, "text": string}]}]}`;
+- "caption" : description TikTok de 2 phrases qui donne envie sans tout dévoiler, puis une question directe au spectateur
+  (« Toi, tu pardonnes ou tu pars ? »), avec 1 emoji maximum. "pinned" : un commentaire à épingler qui fait débattre
+  (« Vous êtes team Bineta, ou vous pensez que Moussa cache pire ? »). "cover" : numéro (à partir de 0) du plan le plus fort
+  visuellement pour la couverture (gros plan expressif, idéalement avec l'objet clé).
+Réponds UNIQUEMENT en JSON : {"title": string, "logline": string, "mood": string, "caption": string, "pinned": string, "cover": number, "scenes": [{"characters": string[], "setting": string, "action": string, "camera": string, "lines": [{"speaker": string, "text": string}]}]}`;
 
   const brief = `HISTOIRE DE LA SÉRIE (à respecter) : ${input.pitch ?? input.plan.title}
 Épisode ${ep.n}/${input.plan.episodes.length} : ${ep.title}
@@ -239,6 +259,9 @@ Ajoute à ce JSON les champs "score" (number, note de la version d'ORIGINE) et "
       const { problems, score, ...rest } = review;
       console.log("[script doctor]", score, problems);
       rest.scenes = oneSpeakerPerShot(normalizeNames(rest.scenes, input.cast));
+      rest.caption ||= draft.caption;
+      rest.pinned ||= draft.pinned;
+      rest.cover ??= draft.cover;
       return rest;
     }
   } catch (e) {
@@ -279,7 +302,21 @@ export function normalizeNames(scenes: Scene[], cast: Character[]): Scene[] {
  * Le générateur vidéo ne fait qu'une voix par plan : si un plan contient des répliques de
  * plusieurs personnages, on le découpe en plusieurs plans (un orateur chacun, cadré sur lui).
  */
+/** Au plus 2 personnages par plan : celui qui parle et son interlocuteur (lisibilité, images plus nettes). */
+function twoPerShot(scenes: Scene[]): Scene[] {
+  return scenes.map((s) => {
+    if ((s.characters?.length ?? 0) <= 2) return s;
+    const who = s.lines?.[0]?.speaker.replace(/\s*\(pens[ée]e\)/i, "").trim();
+    const keep = who && s.characters.includes(who) ? [who, ...s.characters.filter((c) => c !== who)] : s.characters;
+    return { ...s, characters: keep.slice(0, 2) };
+  });
+}
+
 export function oneSpeakerPerShot(scenes: Scene[]): Scene[] {
+  return twoPerShot(splitSpeakers(scenes));
+}
+
+function splitSpeakers(scenes: Scene[]): Scene[] {
   const out: Scene[] = [];
   for (const s of scenes) {
     const lines = s.lines ?? [];
