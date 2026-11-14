@@ -95,7 +95,7 @@ export async function chatJSON<T>(
           { role: "user", content: user },
         ],
       }),
-    });
+    }, kind === "writer" ? 2 : 4); // appels longs : peu de nouvelles tentatives (limite de temps Vercel)
     await check(res, "texte");
     const json = (await res.json()) as {
       choices: { message: { content: string } }[];

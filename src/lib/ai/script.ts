@@ -131,7 +131,7 @@ export async function buildPlan(input: {
     };
   }
   const country = getCountry(input.countryId);
-  return chatJSON<SeriesPlan>(
+  const ask = (effort: "low" | "medium") => chatJSON<SeriesPlan>(
     `Tu es scénariste de mini-séries virales TikTok jouées par des personnages-fruits en 3D.
 Public : Afrique francophone (et diaspora). Ton : drôle, dramatique, rebondissements, punchlines.
 L'histoire doit être simple à suivre : un enjeu clair (argent, mariage, trahison, honte publique…), des personnages aux motivations évidentes.
@@ -162,8 +162,14 @@ ${input.episodes === 1 ? "ÉPISODE UNIQUE : raconte l'histoire EN ENTIER, en ver
 Personnages :
 ${castText(input.cast)}`,
     "writer",
-    "medium",
+    effort,
   );
+  try {
+    return await ask("medium");
+  } catch (e) {
+    console.warn("[plan] nouvel essai en mode rapide", e);
+    return ask("low");
+  }
 }
 
 /**
@@ -184,7 +190,7 @@ export async function buildBeats(input: {
   const country = getCountry(input.countryId);
   const last = ep.n >= input.plan.episodes.length;
   const prev = input.plan.episodes.filter((e) => e.n < ep.n).map((e) => `Épisode ${e.n} : ${e.summary} (fin : ${e.cliffhanger})`).join("\n");
-  const res = await chatJSON<{ twists?: string[]; plant?: string; beats?: string[] }>(
+  const ask = (effort: "low" | "medium") => chatJSON<{ twists?: string[]; plant?: string; beats?: string[] }>(
     `Tu es le showrunner d'une mini-série TikTok de personnages-fruits en 3D (épisodes très regardés, public francophone).
 Tu écris le SÉQUENCIER d'un épisode de ${input.seconds} s : exactement ${sceneCount} moments, un par plan de ~${(input.seconds / sceneCount).toFixed(0)} s.
 ${STORY_CRAFT}
@@ -207,8 +213,20 @@ ${ep.secret ? `Secret : ${ep.secret}\n` : ""}${ep.twist ? `Retournement prévu :
 Personnages :
 ${castText(input.cast, input.plan.roles)}`,
     "writer",
-    "medium",
+    effort,
   );
+  // Réflexion poussée d'abord ; en cas de panne passagère, version rapide ; sinon on écrit sans séquencier.
+  let res: { beats?: string[] } = {};
+  try {
+    res = await ask("medium");
+  } catch (e) {
+    console.warn("[séquencier] nouvel essai en mode rapide", e);
+    try {
+      res = await ask("low");
+    } catch (e2) {
+      console.warn("[séquencier] ignoré", e2);
+    }
+  }
   const beats = (res.beats ?? []).filter((b) => typeof b === "string" && b.trim());
   return beats.length ? beats : [];
 }

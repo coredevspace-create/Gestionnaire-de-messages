@@ -38,7 +38,7 @@ export const STORIES: Story[] = [
     hook: "« Il y a trop d'argent dans ma paie… Je le rends ou je nourris ma famille ? »",
     theme: "Test et karma",
     pitch:
-      "Le riche patron glisse exprès trop d'argent dans la paie de son employé le plus pauvre pour tester son honnêteté. L'employé vient le rendre… mais c'est la femme du patron qui ouvre la porte et garde l'argent pour elle. Le patron accuse l'employé de vol. L'employé sort son téléphone : il a tout filmé.",
+      "Le riche patron glisse exprès trop d'argent dans la paie de son employé le plus pauvre pour tester son honnêteté. L'employé, dont la mère est malade, vient quand même le rendre… mais c'est la femme du patron qui ouvre la porte et garde l'argent pour elle. Le lendemain, elle accuse l'employé de vol devant tout le monde. Ce qu'elle ignore : la sonnette de la villa filme tout, et c'est le patron lui-même qui l'a fait installer la veille… parce qu'il soupçonnait déjà quelqu'un dans sa propre maison.",
     cast: ["fils", "papa", "coepouse"],
     countries: [],
     tags: ["viral", "nouveau"],
@@ -49,7 +49,7 @@ export const STORIES: Story[] = [
     hook: "« Toi le gardien, va me garer ma voiture ! » — Il ne sait pas à qui il parle.",
     theme: "Héros sous-estimé",
     pitch:
-      "Un jeune cadre arrogant humilie le vieux gardien de l'immeuble devant tout le monde. Il ignore que ce gardien est le milliardaire propriétaire de l'entreprise, qui s'est déguisé pour voir comment ses employés traitent les petits.",
+      "Un jeune cadre arrogant humilie le vieux gardien de l'immeuble devant tout le monde et lui jette les clés de sa voiture. Le gardien est en réalité le milliardaire propriétaire de l'entreprise, déguisé pour voir comment on traite les petits. Mais le vrai choc arrive à la réunion du lendemain : le cadre présente fièrement « son » grand projet… que le gardien l'a entendu voler à une stagiaire dans l'ascenseur.",
     cast: ["papa", "fils", "fille"],
     countries: [],
     tags: ["viral", "nouveau"],
@@ -60,7 +60,7 @@ export const STORIES: Story[] = [
     hook: "« Ma fille ne va pas épouser un vendeur de beignets ! »",
     theme: "Mariage et dot",
     pitch:
-      "Pour tester sa future belle-famille, un fiancé très riche se fait passer pour un pauvre vendeur de beignets. La belle-mère le méprise et lui présente un « vrai » prétendant riche… qui travaille en réalité pour le fiancé.",
+      "Pour tester sa future belle-famille, un fiancé très riche se fait passer pour un pauvre vendeur de beignets. La belle-mère le méprise et lui présente un « vrai » prétendant riche, plein d'assurance. Au repas de fiançailles, ce prétendant se lève pour porter un toast… et tend les clés d'une villa au vendeur de beignets : « Patron, la maison que vous m'avez demandé d'acheter pour votre femme est prête. »",
     cast: ["fils", "bellemere", "fille", "oncle"],
     countries: [],
     tags: ["viral", "top"],
@@ -71,7 +71,7 @@ export const STORIES: Story[] = [
     hook: "« Frère… tu viens de soulever un camion avec une main ?! »",
     theme: "Héros sous-estimé",
     pitch:
-      "Un moto-taxi discret soulève un camion d'une main pour sauver un enfant. Son ami le pousse à s'inscrire au grand concours de force de la ville, 50 millions à gagner. Le champion en titre se moque de lui… jusqu'à la première épreuve.",
+      "Un moto-taxi discret soulève un camion d'une main pour sauver un enfant. Son ami le pousse à s'inscrire au grand concours de force de la ville, 50 millions à gagner. Le champion en titre se moque de lui et fait saboter sa moto pour qu'il arrive en retard à la finale. Le moto-taxi arrive pile à l'heure… en portant sa moto sur l'épaule, devant tout le stade.",
     cast: ["fils", "voisin", "oncle"],
     countries: ["bj", "tg", "cm"],
     tags: ["viral", "nouveau"],
@@ -82,7 +82,7 @@ export const STORIES: Story[] = [
     hook: "« Ici c'est mon quartier. Le nouveau, tu baisses les yeux. »",
     theme: "Héros sous-estimé",
     pitch:
-      "Le caïd du quartier rackette tout le monde et s'en prend au nouveau, un garçon calme à lunettes. Les vendeuses du marché chuchotent : « S'il enlève ses lunettes, c'est fini pour lui… »",
+      "Le caïd du quartier rackette tout le monde et s'en prend au nouveau, un garçon calme à lunettes. Les vendeuses du marché chuchotent entre elles et prient pour que le caïd s'arrête. Le jour où le caïd le gifle devant le marché, le nouveau ne se bat pas : il enlève ses lunettes et sort une carte. C'est le nouveau commissaire du quartier… et les vendeuses qui chuchotaient étaient ses informatrices depuis le début.",
     cast: ["voisin", "fils", "maman", "coepouse"],
     countries: [],
     tags: ["viral", "nouveau"],
@@ -104,7 +104,7 @@ export const STORIES: Story[] = [
     hook: "« C'est moi qui ai eu 19 au bac, pas elle ! »",
     theme: "Trahison et jalousie",
     pitch:
-      "La meilleure élève du pays apprend que sa bourse pour l'étranger a été donnée à la fille du directeur. Elle n'a qu'une preuve : un enregistrement… et le directeur vient de le découvrir.",
+      "La meilleure élève du pays apprend que sa bourse pour l'étranger a été donnée à la fille du directeur. Sa seule preuve est un enregistrement, et le directeur le fait effacer devant elle en souriant. Mais pendant la remise des prix, la fille du directeur prend le micro : c'est elle qui avait gardé une copie, parce qu'elle refuse de voler la place de son amie.",
     cast: ["fille", "papa", "coepouse"],
     countries: [],
     tags: ["viral", "nouveau"],
@@ -115,7 +115,7 @@ export const STORIES: Story[] = [
     hook: "« Il arrive du village avec un sac en plastique et il veut parler au PDG ? »",
     theme: "Village contre ville",
     pitch:
-      "Un cousin du village débarque dans la tour d'une grande entreprise de la capitale. Tout le monde se moque de lui à l'accueil. Il est l'unique héritier du fondateur, mort la semaine dernière.",
+      "Un cousin du village débarque dans la tour d'une grande entreprise de la capitale avec un sac en plastique. Tout le monde se moque de lui à l'accueil, surtout la réceptionniste ; seul l'agent d'entretien lui offre un verre d'eau. Il est l'unique héritier du fondateur, mort la semaine dernière. Au lieu de renvoyer tout le monde, il nomme l'agent d'entretien directeur… et lui confie le sort de la réceptionniste.",
     cast: ["voisin", "fille", "oncle"],
     countries: [],
     tags: ["viral", "nouveau"],
@@ -139,7 +139,7 @@ export const STORIES: Story[] = [
     hook: "« Tu as dit que tu allais au marché. Tu es revenu avec une femme ! »",
     theme: "Polygamie et co-épouses",
     pitch:
-      "Le papa rentre à la maison avec une jeune deuxième épouse sans prévenir. La première épouse prépare sa riposte.",
+      "Le papa rentre à la maison avec une jeune deuxième épouse sans prévenir. Au lieu de crier, la première épouse l'accueille avec un grand sourire et lui donne la meilleure chambre. Le mari jubile… jusqu'au soir, où l'on découvre que les deux femmes se connaissent : la jeune épouse est la nièce de la première, et elles ont organisé ce mariage pour l'empêcher de vendre la maison en cachette.",
     cast: ["papa", "maman", "coepouse"],
     countries: [],
     tags: ["viral", "top"],
@@ -181,7 +181,7 @@ export const STORIES: Story[] = [
     hook: "« En France je suis directeur. » — Il est agent de sécurité.",
     theme: "Argent et diaspora",
     pitch:
-      "L'oncle rentre de France en faisant croire qu'il est riche. La famille fait la queue pour demander de l'argent… jusqu'à ce que la vérité éclate.",
+      "L'oncle rentre de France en faisant croire qu'il est riche : lunettes noires, valise brillante. La famille fait la queue pour lui réclamer de l'argent. Quand la vérité éclate (la valise est vide), tout le monde se moque de lui, sauf son neveu. Le dernier jour, le neveu découvre pourquoi l'oncle est fauché : depuis dix ans, c'est lui qui paie en secret l'école de toute la famille.",
     cast: ["oncle", "maman", "fils", "voisin"],
     countries: [],
     tags: ["viral", "top"],
@@ -192,7 +192,7 @@ export const STORIES: Story[] = [
     hook: "« Je t'ai envoyé l'argent pour la maison. Montre-moi la maison. »",
     theme: "Argent et diaspora",
     pitch:
-      "Depuis l'étranger, la fille envoie de l'argent pour construire une maison. Elle rentre au pays et découvre un terrain vide.",
+      "Depuis l'étranger, la fille envoie de l'argent pendant trois ans pour construire une maison. Elle rentre au pays et découvre un terrain vide. L'oncle chargé des travaux accuse les maçons d'avoir tout volé. Mais sa mère, honteuse, finit par l'emmener au village voisin : devant eux, la belle maison neuve que l'oncle s'est construite avec son argent.",
     cast: ["fille", "oncle", "maman"],
     countries: ["cm", "cd", "sn"],
     tags: ["viral"],
@@ -272,7 +272,7 @@ export const WORLD_STORIES: Story[] = [
     hook: "« Le stagiaire, va me chercher un café. Et plus vite que ça ! »",
     theme: "Monde : pouvoir caché",
     pitch:
-      "Dans une tour de bureaux, le chef d'équipe humilie chaque jour le stagiaire timide à lunettes. Les collègues chuchotent : personne ne sait que le stagiaire est le fils du PDG, envoyé en secret pour juger les managers. Aujourd'hui, c'est le jour de l'évaluation.",
+      "Dans une tour de bureaux, le chef d'équipe humilie chaque jour le stagiaire timide à lunettes. Les collègues chuchotent : personne ne sait que le stagiaire est le fils du PDG, envoyé en secret pour juger les managers. Le jour de l'évaluation, le chef découvre le secret et devient soudain tout mielleux. Le stagiaire fait semblant d'y croire… puis sort son petit carnet : il a noté chaque humiliation, et c'est lui qui lit l'évaluation à voix haute, devant le PDG.",
     cast: [],
     castSpec: [
       { id: "stagiaire", name: "Théo", fruit: "banana", role: "stagiaire timide", look: "young shy intern, round glasses, oversized shirt and tie, badge" },
@@ -290,7 +290,7 @@ export const WORLD_STORIES: Story[] = [
     hook: "« Ici, c'est moi qui mange en premier. Toi, tu baisses les yeux. »",
     theme: "Monde : pouvoir caché",
     pitch:
-      "Dans la cantine d'une prison, un caïd énorme terrorise les cuisiniers et vole les plateaux. Il s'en prend à un nouveau détenu silencieux. Les cuisiniers savent quelque chose sur ce nouveau… et prient pour que le caïd ne le pousse pas à bout.",
+      "Dans la cantine d'une prison, un caïd énorme terrorise les cuisiniers et vole les plateaux. Il s'en prend à un nouveau détenu silencieux. Les cuisiniers savent quelque chose sur ce nouveau… et prient pour que le caïd ne le pousse pas à bout. Quand le caïd renverse son plateau, le nouveau ne lève pas la main : il murmure le vrai nom du caïd. Il était son ancien garde du corps, celui que le caïd a trahi pour l'envoyer en prison à sa place.",
     cast: [],
     castSpec: [
       { id: "caid", name: "Le Boss", fruit: "watermelon", role: "caïd de la prison", look: "huge muscular inmate, white prison uniform, tattoos, menacing stare" },
@@ -395,7 +395,7 @@ export const WORLD_STORIES: Story[] = [
     hook: "« Tu sers à rien, le vigile. Regarde, je vole devant toi. »",
     theme: "Monde : pouvoir caché",
     pitch:
-      "Une bande de voyous provoque le vieux vigile d'un centre commercial et vole une boutique sous ses yeux. Ils ne savent pas que ce vigile est un ancien champion du monde de boxe, qui a juré de ne plus jamais se battre… sauf si on touche à un enfant.",
+      "Une bande de voyous provoque le vieux vigile d'un centre commercial et vole une boutique sous ses yeux. Ils ne savent pas que ce vigile est un ancien champion du monde de boxe, qui a juré de ne plus jamais se battre… sauf si on touche à un enfant. Quand le chef bouscule un enfant, le vigile retire sa casquette. Mais il ne frappe pas : il siffle, et toute la galerie se lève — vendeurs, agents d'entretien, clients : tous ses anciens élèves de boxe.",
     cast: [],
     castSpec: [
       { id: "vigile", name: "Papi Joe", fruit: "coconut", role: "vieux vigile ancien champion", look: "old calm security guard, uniform, cap, big strong bare hands of a former boxer (no gloves)" },
